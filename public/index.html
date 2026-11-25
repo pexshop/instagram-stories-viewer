@@ -664,17 +664,44 @@ status();
 
 </script>
 <script>
-/* Open collapsed tool groups before navigating from the top bar. */
-document.querySelectorAll("#toolTopNav a").forEach(link=>{
- link.addEventListener("click",event=>{
-  const id=link.getAttribute("href")?.slice(1),target=id&&document.getElementById(id);
-  if(!target)return;
-  event.preventDefault();
-  const group=target.matches("details")?target:target.closest("details");
-  if(group)group.open=true;
-  target.scrollIntoView({behavior:matchMedia("(prefers-reduced-motion: reduce)").matches?"auto":"smooth",block:"start"});
-  history.replaceState(null,"","#"+id);
- });
-});
+/* Low-overhead ambient text: keep the central typewriter, avoid wrapping every text node. */
 </script>
+
 </body></html>
+<style id="transparent-performance-final">
+/* Transparent surfaces: preserve the space scene across every page section. */
+html,body{background:transparent!important}
+header,.tool-top-nav{background:rgba(3,5,12,.16)!important;border-color:rgba(190,210,255,.12)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.panel,.embed-card,.profile-view,.viewer,.notice,.followers-box,.follower-card,.profile-tile,.simple-more,.settings-more,.history-more{
+ background:rgba(4,7,16,.12)!important;
+ border-color:rgba(190,210,255,.16)!important;
+ box-shadow:none!important;
+ backdrop-filter:none!important;-webkit-backdrop-filter:none!important
+}
+.viewer,.stage{background:rgba(0,0,0,.12)!important}
+.profile-link,.secondary,.tool-top-nav a,.glass,.btn,.media-modal-close,.media-modal-nav{
+ background:rgba(5,8,18,.20)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important
+}
+input:not([type=checkbox]),select,.embed-form input{
+ background:rgba(4,7,16,.38)!important;color:#fff!important;border-color:rgba(190,210,255,.24)!important
+}
+.panel h2,.profile-view h2,.embed-card h2,.followers-head h3,.field,.simple-more>summary,.settings-more>summary,.history-more>summary{color:#f4f6ff!important;text-shadow:0 1px 5px #000}
+.panel p,.profile-view>p,.embed-card p,.profile-note,.sub,.status,.small,.profile-meta,.profile-handle{color:rgba(235,239,255,.78)!important;text-shadow:0 1px 5px #000}
+.embed-item{background:rgba(255,255,255,.92)!important}
+.media-modal{background:rgba(0,0,0,.34)!important;backdrop-filter:none!important}
+.media-modal-card{background:rgba(4,7,16,.52)!important;backdrop-filter:none!important}
+#nebulaMotion{animation:none!important;filter:none!important;opacity:.12!important;transform:none!important}
+#galaxyPhoto{opacity:.10!important;filter:none!important}
+#spacePhoto{filter:none!important}
+#textParticles{display:none!important}
+#starfield{opacity:.55!important}
+.site-motion-text{animation:siteTextLowCost 14s ease-in-out infinite!important;will-change:auto!important;text-shadow:0 1px 5px #000!important}
+@media(max-width:760px){
+ #spacePhoto{background-position:52% center}
+ #galaxyPhoto{opacity:.07!important}
+ #starfield{opacity:.42!important}
+ .panel,.embed-card,.profile-view,.viewer,.notice,.followers-box,.follower-card,.profile-tile{background:rgba(4,7,16,.10)!important}
+ .tool-top-nav{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+}
+@media(prefers-reduced-motion:reduce){.site-motion-text{animation:none!important;opacity:1!important}}
+</style>
