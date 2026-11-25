@@ -242,7 +242,20 @@ export default {
     const configured=!!env.SOCIALFETCH_API_KEY;
     let credits={paused:false,retryAt:null};
     if(configured){try{credits=await providerCreditState(env);}catch{credits={paused:true,retryAt:null,guardUnavailable:true};}}
-    return json({connected:configured&&!credits.paused,provider:"Social Fetch",apiKeyConfigured:configured,connectionState:!configured?"missing_key":credits.paused?"credits_exhausted":"configured",providerPaused:!!credits.paused,automaticRetryAt:credits.retryAt||null,creditGuardUnavailable:!!credits.guardUnavailable,requiresMetaLogin:false});
+    if(!configured)return json({connected:false,provider:"Social Fetch",apiKeyConfigured:false,connectionState:"missing_key",message:"Cloudflare 未配置 SOCIALFETCH_API_KEY。",requiresMetaLogin:false});
+    if(credits.guardUnavailable)return json({connected:false,provider:"Social Fetch",apiKeyConfigured:true,connectionState:"credit_guard_unavailable",message:"Cloudflare Durable Object 限流/额度保护服务不可用。",requiresMetaLogin:false});
+    if(credits.paused)return json({connected:false,provider:"Social Fetch",apiKeyConfigured:true,connectionState:"credits_exhausted",providerPaused:true,automaticRetryAt:credits.retryAt||null,message:"API 额度保护已暂停请求。",requiresMetaLogin:false});
+    try{
+     const probe=await fetch("https://api.socialfetch.dev/v1/whoami",{method:"GET",headers:{"x-api-key":env.SOCIALFETCH_API_KEY,"accept":"application/json"},redirect:"error",signal:AbortSignal.timeout(7000)});
+     const probeBody=await probe.text();
+     let probeData={};try{probeData=JSON.parse(probeBody)}catch{}
+     if(probe.ok)return json({connected:true,provider:"Social Fetch",apiKeyConfigured:true,connectionState:"connected",message:"Social Fetch API 密钥验证成功。",requiresMetaLogin:false});
+     const code=String(probeData?.error?.code||probeData?.error?.type||probeData?.error||probeData?.code||"").toLowerCase();
+     const auth=probe.status===401||code.includes("unauthorized");
+     return json({connected:false,provider:"Social Fetch",apiKeyConfigured:true,connectionState:auth?"invalid_key":probe.status===402?"credits_or_key_issue":probe.status===429?"rate_limited":"provider_error",providerHttpStatus:probe.status,message:auth?"API 密钥无效、已撤销或过期，请检查 SOCIALFETCH_API_KEY。":probe.status===402?"Social Fetch 返回 402，请检查密钥是否正确传入及账户额度。":probe.status===429?"Social Fetch 请求频率受限，请稍后再试。":"Social Fetch 暂时无法验证密钥，请稍后重试。",requiresMetaLogin:false});
+    }catch{
+     return json({connected:false,provider:"Social Fetch",apiKeyConfigured:true,connectionState:"provider_unreachable",message:"无法连接 Social Fetch 验证接口，请稍后重试。",requiresMetaLogin:false});
+    }
    }
    if(url.pathname==="/api/profile"){
     const profile=cleanProfile(url.searchParams.get("username"));
