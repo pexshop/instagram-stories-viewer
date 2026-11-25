@@ -43,7 +43,7 @@ function cleanProfile(value){
  let raw=String(value||"").trim();
  if(/^https?:\/\//i.test(raw)){
   let parsed;try{parsed=new URL(raw)}catch{throw new Error("Instagram 主页链接无效。")}
-  if(!/(^|\.)instagram\.com$/i.test(parsed.hostname))throw new Error("只支持 instagram.com 主页链接。");
+  if(parsed.protocol!=="https:"||!/(^|\.)instagram\.com$/i.test(parsed.hostname)||parsed.username||parsed.password)throw new Error("只支持 HTTPS Instagram 官方主页链接。");
   const parts=parsed.pathname.split("/").filter(Boolean);
   raw=parts[0]==="stories"?parts[1]||"":parts[0]||"";
  }
@@ -125,25 +125,23 @@ export default {
    if(url.pathname==="/api/search/profiles"){
     const query=String(url.searchParams.get("query")||"").trim();
     if(!query||query.length>100) throw new Error("请输入要搜索的账号关键词（最多 100 个字符）。");
-    const cursor=url.searchParams.get("cursor");
+    const cursor=safeCursor(url.searchParams.get("cursor"));
     const qs=new URLSearchParams({query});if(cursor)qs.set("cursor",cursor);
     const result=await social("/v2/instagram/profiles/search?"+qs.toString(),env);
     const d=result.data||{};
     return json({accounts:d.accounts||[],page:d.page||null,creditsCharged:result.meta?.creditsCharged??null});
    }
    if(url.pathname==="/api/comments"){
-    const media=String(url.searchParams.get("media")||"").trim();
-    if(!media||media.length>500) throw new Error("请输入 Instagram 帖子或 Reels 链接。");
+    const media=validMedia(url.searchParams.get("media"));
     const sort=url.searchParams.get("sort")==="newest"?"newest":"top";
-    const cursor=url.searchParams.get("cursor");
+    const cursor=safeCursor(url.searchParams.get("cursor"));
     const qs=new URLSearchParams({sort});if(cursor)qs.set("cursor",cursor);
     const result=await social("/v2/instagram/media/"+encodeURIComponent(media)+"/comments?"+qs.toString(),env);
     const d=result.data||{};
     return json({lookupStatus:d.lookupStatus||"unknown",comments:d.comments||[],page:d.page||null,creditsCharged:result.meta?.creditsCharged??null});
    }
    if(url.pathname==="/api/likers"){
-    const media=String(url.searchParams.get("media")||"").trim();
-    if(!media||media.length>500) throw new Error("请输入 Instagram 帖子或 Reels 链接。");
+    const media=validMedia(url.searchParams.get("media"));
     const result=await social("/v2/instagram/media/"+encodeURIComponent(media)+"/likers",env);
     const d=result.data||{};
     return json({lookupStatus:d.lookupStatus||"unknown",accounts:d.accounts||[],sampled:!!d.sampled,creditsCharged:result.meta?.creditsCharged??null});
@@ -162,8 +160,7 @@ export default {
     return json({lookupStatus:d.lookupStatus||"unknown",audio:m.audio||null,post:m?{id:m.id||null,url:m.url||media,kind:m.kind||null,mediaType:m.mediaType||null,caption:m.caption||null,owner:m.owner||null}:null,creditsCharged:result.meta?.creditsCharged??null,stale:!!result.meta?.stale});
    }
    if(url.pathname==="/api/media/detail"){
-    const media=String(url.searchParams.get("media")||"").trim();
-    if(!media||media.length>500) throw new Error("请输入 Instagram 帖子或 Reels 链接。");
+    const media=validMedia(url.searchParams.get("media"));
     const result=await social("/v2/instagram/media/"+encodeURIComponent(media),env);
     const d=result.data||{};
     return json({lookupStatus:d.lookupStatus||"unknown",media:d.media||null,creditsCharged:result.meta?.creditsCharged??null});
