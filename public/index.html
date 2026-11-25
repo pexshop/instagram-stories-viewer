@@ -56,6 +56,19 @@ input::placeholder{color:#9a9eaa}
  header{padding:0 14px}.panel,.profile-view,.embed-card{padding:16px}
  .row{flex-wrap:wrap}.row>*{min-width:0}
 }
+
+.simple-more>summary,.settings-more>summary,.history-more>summary,.followers-box>summary{cursor:pointer;list-style:none;font-weight:650;color:#4b4f59;padding:10px 0}
+.simple-more>summary::-webkit-details-marker,.settings-more>summary::-webkit-details-marker,.history-more>summary::-webkit-details-marker,.followers-box>summary::-webkit-details-marker{display:none}
+.simple-more>summary:after,.settings-more>summary:after,.history-more>summary:after,.followers-box>summary:after{content:"＋";float:right;color:#6556d9;font-size:18px}
+.simple-more[open]>summary:after,.settings-more[open]>summary:after,.history-more[open]>summary:after,.followers-box[open]>summary:after{content:"−"}
+.simple-more .more-intro{margin:4px 0 14px;color:#777;font-size:13px}
+.simple-more .more-inner{padding-top:6px}
+.settings-more,.history-more{border-top:1px solid #eceef1;margin-top:14px;padding-top:6px}
+.history-more #profileHistory{max-height:190px;overflow:auto}
+.followers-box{padding-top:8px}
+.panel .row .secondary{font-size:13px;padding:10px 5px}
+.panel .primary{min-height:46px}
+@media(max-width:600px){.simple-more>summary{padding:14px 0}.simple-more .more-inner{padding-bottom:4px}}
 </style></head><body>
 <header><div class="logo">Instagram <span>浏览器</span></div><div class="status" id="status">正在检查连接…</div></header>
 <main><section class="hero"><h1>浏览公开 Instagram 内容</h1><div class="sub">输入用户名，查看快拍、帖子、Reels 和主页资料。</div></section>
@@ -65,31 +78,32 @@ input::placeholder{color:#9a9eaa}
 <aside class="panel"><h2>1. 输入账号</h2><p>填写用户名后，选择要查看的内容。</p>
 <label class="field" for="profile">Instagram 用户名</label><input id="profile" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="例如 nasa" style="width:100%;background:#09090d;border:1px solid #ffffff26;color:#fff;padding:12px;border-radius:10px">
 <a id="profileUrl" class="small" href="#" target="_blank" rel="noopener noreferrer" style="display:none;color:#c6a5ff;text-decoration:underline;overflow-wrap:anywhere;margin-top:9px">打开 Instagram 主页</a>
-<div class="divider"></div><div class="row" style="align-items:center;justify-content:space-between"><h2 style="margin:0;font-size:16px">最近浏览</h2><button class="secondary" id="clearProfileHistory" type="button">清空记录</button></div><div id="profileHistory" class="small" style="display:grid;gap:8px;margin-top:10px">暂无记录</div>
+<details class="history-more"><summary>最近浏览记录</summary><div class="row" style="align-items:center;justify-content:space-between"><span class="small">最多保存 20 个账号</span><button class="secondary" id="clearProfileHistory" type="button">清空</button></div><div id="profileHistory" class="small" style="display:grid;gap:8px;margin-top:10px">暂无记录</div></details>
 <button class="primary" id="loadStories" style="margin-top:10px">查看快拍</button>
 <div class="row"><button class="secondary" id="loadHighlights">精选</button><button class="secondary" id="loadPosts">帖子</button><button class="secondary" id="loadReels">Reels</button></div>
-<label class="field" for="highlights">精选快拍合集</label><select id="highlights"><option value="">先加载精选快拍</option></select>
+<label class="field" for="highlights">选择一个精选合集</label><select id="highlights"><option value="">先加载精选快拍</option></select>
 <button class="secondary" id="playHighlight">播放精选</button>
-<div class="divider"></div><h2>播放设置</h2><label class="field" for="duration">图片播放时长</label><select id="duration"><option value="5000">5 秒</option><option value="7000" selected>7 秒</option><option value="10000">10 秒</option><option value="15000">15 秒</option></select><label class="field"><input type="checkbox" id="loop" checked> 播放结束后循环</label>
+<details class="settings-more"><summary>播放设置</summary><label class="field" for="duration">图片播放时长</label><select id="duration"><option value="5000">5 秒</option><option value="7000" selected>7 秒</option><option value="10000">10 秒</option><option value="15000">15 秒</option></select><label class="field"><input type="checkbox" id="loop" checked> 自动循环播放</label></details>
 <div id="message" class="err"></div><p class="small">仅限公开可访问内容。私密账号、已过期快拍或受限制内容不会返回。第三方服务可能收费、限流，媒体链接也可能过期。</p></aside></div>
 <section class="profile-view"><h2 style="margin:0 0 8px;font-size:18px">2. 主页资料</h2><p style="color:#707580;font-size:13px;line-height:1.6">查看账号简介、粉丝数据和最近发布的内容。</p><button class="primary" id="loadProfile" type="button">查看主页</button><div id="profileResult"></div><div class="profile-note">仅显示第三方 API 能获取的公开资料。私密内容不可查看；图片和视频地址可能过期。点击帖子可在本站预览。</div></section>
-<section class="profile-view">
-<h2 style="margin:0 0 8px;font-size:18px">3. 搜索与发现</h2>
-<p style="color:#aaa;font-size:13px;line-height:1.6">按名称或关键词搜索 Instagram 公开账号。搜索结果受 Instagram 和第三方 API 可见范围限制。</p>
+<details class="profile-view simple-more"><summary>更多工具</summary><p class="more-intro">不常用的功能放在这里，需要时再展开。</p><div class="more-inner">
+<h2 style="margin:0 0 8px;font-size:18px">搜索公开账号</h2>
+<p style="color:#aaa;font-size:13px;line-height:1.6">输入名称或关键词，查找公开账号。</p>
 <div class="embed-form"><input id="profileSearchQuery" placeholder="搜索账号或关键词，例如 travel"><button class="primary" id="searchProfiles" type="button" style="width:auto;min-width:110px">搜索账号</button></div>
 <div id="profileSearchResults" class="followers-list"></div>
 <div class="divider"></div>
-<h2 style="margin:0 0 8px;font-size:18px">热门 Reels 与话题发现</h2>
+<div class="divider"></div><h2 style="margin:0 0 8px;font-size:16px">热门视频和话题</h2>
 <button class="primary" id="loadTrendingReels" type="button">发现热门 Reels</button>
 <div class="embed-form" style="margin-top:10px"><input id="hashtagQuery" placeholder="搜索话题，例如 photography"><button class="secondary" id="searchHashtags" type="button">搜索话题</button></div>
 <div id="hashtagResults" class="followers-list"></div>
 <div class="divider"></div>
-<h2 style="margin:0 0 8px;font-size:18px">4. 评论与点赞者</h2>
-<p style="color:#aaa;font-size:13px;line-height:1.6">粘贴公开 Instagram 帖子或 Reels 链接，查看可获取的评论和点赞者名单。</p>
+<div class="divider"></div><h2 style="margin:0 0 8px;font-size:16px">查看评论和点赞者</h2>
+<p style="color:#aaa;font-size:13px;line-height:1.6">粘贴公开帖子或 Reels 链接。</p>
 <input id="mediaLookupUrl" placeholder="https://www.instagram.com/p/… 或 /reel/…" style="width:100%;background:#09090d;border:1px solid #ffffff26;color:#fff;padding:12px;border-radius:10px">
 <div class="row"><button class="secondary" id="loadComments" type="button">查看评论</button><button class="secondary" id="loadLikers" type="button">查看点赞者</button></div>
 <div id="mediaLookupResults" style="margin-top:12px"></div>
-</section>
+</div>
+</details>
 </main>
 <div class="media-modal" id="mediaModal" role="dialog" aria-modal="true" aria-label="媒体预览">
  <div class="media-modal-card"><div class="media-modal-head"><strong id="mediaModalTitle">Instagram 媒体</strong><button class="media-modal-close" id="mediaModalClose" type="button">关闭 ✕</button></div>
