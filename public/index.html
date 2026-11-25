@@ -17,6 +17,7 @@
 <div class="stage" id="stage"><div class="bars" id="bars"></div><div class="who"><div class="avatar" id="avatar">IG</div><div><strong id="username">@instagram</strong><small id="storytime">快拍</small></div></div><img id="photo" alt="Instagram story" class="hidden"><video id="clip" playsinline class="hidden"></video><button class="nav prev" id="prev" aria-label="上一条"></button><button class="nav next" id="next" aria-label="下一条"></button><div class="controls"><button class="glass" id="pause">暂停</button><button class="glass" id="fullscreen">全屏</button><button class="glass" id="close">关闭</button></div></div></section>
 <aside class="panel"><h2>公开账号浏览</h2><p>无需 Meta 登录。输入公开 Instagram 用户名，读取可访问的实时快拍、精选快拍、帖子和 Reels。</p>
 <label class="field" for="profile">Instagram 用户名</label><input id="profile" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="例如 nasa" style="width:100%;background:#09090d;border:1px solid #ffffff26;color:#fff;padding:12px;border-radius:10px">
+<a id="profileUrl" class="small" href="#" target="_blank" rel="noopener noreferrer" style="display:none;color:#c6a5ff;text-decoration:underline;overflow-wrap:anywhere;margin-top:9px">打开 Instagram 主页</a>
 <button class="primary" id="loadStories" style="margin-top:10px">加载实时快拍</button>
 <div class="row"><button class="secondary" id="loadHighlights">精选快拍</button><button class="secondary" id="loadPosts">帖子</button><button class="secondary" id="loadReels">Reels</button></div>
 <label class="field" for="highlights">精选快拍合集</label><select id="highlights"><option value="">先加载精选快拍</option></select>
@@ -30,6 +31,7 @@ const $=id=>document.getElementById(id);let accounts=[],stories=[],followersCurs
 async function api(path,options={}){const r=await fetch(path,{...options,credentials:"same-origin",headers:{"content-type":"application/json",...(options.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||"请求失败");return d}
 function msg(t){$("message").textContent=t||""}
 function profileValue(){return $("profile").value.trim().replace(/^@/,"")}
+function syncProfileUrl(){const p=profileValue(),a=$("profileUrl");if(/^[A-Za-z0-9._]{1,30}$/.test(p)){a.href="https://www.instagram.com/"+encodeURIComponent(p)+"/";a.textContent="打开 Instagram 主页 · @"+p;a.style.display="block"}else{a.removeAttribute("href");a.style.display="none"}}
 function setStatus(t){$("status").textContent=t}
 function stop(){clearInterval(tick);tick=null;$("clip").pause();if(activeUrl){URL.revokeObjectURL(activeUrl);activeUrl=null}}
 function hideStage(){stop();$("stage").style.display="none";$("empty").classList.remove("hidden")}
@@ -43,7 +45,7 @@ async function loadHighlights(){const p=profileValue();if(!p){msg("请先输入 
 async function playHighlight(){const id=$("highlights").value;if(!id){msg("请先加载并选择一个精选合集。");return}try{msg("正在加载精选快拍…");const d=await api("/api/highlight?id="+encodeURIComponent(id));loadList(d.stories,"精选快拍")}catch(e){msg(e.message)}}
 async function loadMedia(tab){const p=profileValue();if(!p){msg("请先输入 Instagram 用户名。");return}currentProfile=p;try{msg("正在读取"+(tab==="reels"?"Reels":"帖子")+"…");const d=await api("/api/media?username="+encodeURIComponent(p)+"&tab="+tab);loadList(d.media,tab==="reels"?"Reels":"帖子")}catch(e){msg(e.message)}}
 async function status(){try{const d=await api("/api/status");setStatus(d.connected?"第三方 API 已连接":"等待配置第三方 API");if(!d.apiKeyConfigured)msg("网站代码已切换为 Social Fetch。请在 Cloudflare 添加 SOCIALFETCH_API_KEY Secret 后重新部署。")}catch(e){msg(e.message)}}
-$("loadStories").onclick=loadStories;$("loadHighlights").onclick=loadHighlights;$("playHighlight").onclick=playHighlight;$("loadPosts").onclick=()=>loadMedia("posts");$("loadReels").onclick=()=>loadMedia("reels");$("profile").addEventListener("keydown",e=>{if(e.key==="Enter")loadStories()});
+$("loadStories").onclick=loadStories;$("loadHighlights").onclick=loadHighlights;$("playHighlight").onclick=playHighlight;$("loadPosts").onclick=()=>loadMedia("posts");$("loadReels").onclick=()=>loadMedia("reels");$("profile").addEventListener("input",syncProfileUrl);$("profile").addEventListener("keydown",e=>{if(e.key==="Enter")loadStories()});syncProfileUrl();
 $("next").onclick=next;$("prev").onclick=prev;$("close").onclick=hideStage;
 $("pause").onclick=()=>{paused=!paused;$("pause").textContent=paused?"继续":"暂停";if(paused){elapsedBeforePause+=Date.now()-startAt;clearInterval(tick);$("clip").pause()}else{$("clip").play().catch(()=>{});begin()}};
 $("duration").onchange=()=>{if(stories[index]&&stories[index].media_type!=="VIDEO"){elapsedBeforePause=0;begin()}};
