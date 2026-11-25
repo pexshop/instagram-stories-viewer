@@ -32,6 +32,11 @@
 <div class="embed-form"><input id="profileSearchQuery" placeholder="搜索账号或关键词，例如 travel"><button class="primary" id="searchProfiles" type="button" style="width:auto;min-width:110px">搜索账号</button></div>
 <div id="profileSearchResults" class="followers-list"></div>
 <div class="divider"></div>
+<h2 style="margin:0 0 8px;font-size:18px">热门 Reels 与话题发现</h2>
+<button class="primary" id="loadTrendingReels" type="button">发现热门 Reels</button>
+<div class="embed-form" style="margin-top:10px"><input id="hashtagQuery" placeholder="搜索话题，例如 photography"><button class="secondary" id="searchHashtags" type="button">搜索话题</button></div>
+<div id="hashtagResults" class="followers-list"></div>
+<div class="divider"></div>
 <h2 style="margin:0 0 8px;font-size:18px">帖子 / Reels 评论与点赞者</h2>
 <p style="color:#aaa;font-size:13px;line-height:1.6">粘贴公开 Instagram 帖子或 Reels 链接，查看可获取的评论和点赞者名单。</p>
 <input id="mediaLookupUrl" placeholder="https://www.instagram.com/p/… 或 /reel/…" style="width:100%;background:#09090d;border:1px solid #ffffff26;color:#fff;padding:12px;border-radius:10px">
@@ -133,6 +138,23 @@ async function searchProfiles(){
   });msg("搜索完成 · "+d.accounts.length+" 个账号 · 本次 "+(d.creditsCharged??"?")+" credits");
  }catch(e){box.textContent=e.message}
 }
+async function loadTrendingReels(){
+ const box=$("hashtagResults");box.textContent="正在获取热门 Reels…";
+ try{const d=await api("/api/trending/reels");loadList(d.media,"热门 Reels");msg("热门 Reels · "+d.media.length+" 条 · "+(d.creditsCharged??"?")+" credits")}
+ catch(e){box.textContent=e.message}
+}
+async function searchHashtags(){
+ const q=$("hashtagQuery").value.trim();if(!q){msg("请输入话题关键词。");return}
+ const box=$("hashtagResults");box.textContent="正在搜索话题…";
+ try{const d=await api("/api/hashtags/search?query="+encodeURIComponent(q));box.replaceChildren();
+  if(!d.hashtags?.length){box.textContent="没有找到相关话题。";return}
+  d.hashtags.forEach(tag=>{const row=document.createElement("div");row.className="follower-card";const info=document.createElement("div");info.style.minWidth="0";
+   const name=document.createElement("strong");name.textContent="#"+(tag.name||tag.hashtag||"");const count=document.createElement("div");count.className="follower-handle";count.textContent=tag.postCount!=null?Number(tag.postCount).toLocaleString()+" 篇帖子":"Instagram 话题";
+   const open=document.createElement("button");open.type="button";open.className="secondary";open.textContent="浏览话题帖子";open.onclick=async()=>{try{const x=await api("/api/hashtags/media?hashtag="+encodeURIComponent(tag.name||tag.hashtag||"")+"&tab=top");loadList(x.media,"话题 #"+(tag.name||tag.hashtag));}catch(e){msg(e.message)}};
+   info.append(name,count,open);row.append(info);box.append(row)
+  });msg("找到 "+d.hashtags.length+" 个话题 · "+(d.creditsCharged??"?")+" credits");
+ }catch(e){box.textContent=e.message}
+}
 async function lookupMediaList(kind){
  const media=$("mediaLookupUrl").value.trim();if(!media){msg("请粘贴公开帖子或 Reels 链接。");return}
  const box=$("mediaLookupResults");box.textContent=kind==="comments"?"正在读取评论…":"正在读取点赞者…";
@@ -150,7 +172,7 @@ async function lookupMediaList(kind){
   });const note=document.createElement("p");note.className="profile-note";note.textContent=(kind==="comments"?"评论":"点赞者")+" · "+items.length+" 条"+(d.sampled?" · 样本数据":"")+" · 本次 "+(d.creditsCharged??"?")+" credits";box.append(note);
  }catch(e){box.textContent=e.message}
 }
-$("loadProfile").onclick=loadProfile;$("searchProfiles").onclick=searchProfiles;$("profileSearchQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchProfiles()});$("loadComments").onclick=()=>lookupMediaList("comments");$("loadLikers").onclick=()=>lookupMediaList("likers");
+$("loadProfile").onclick=loadProfile;$("searchProfiles").onclick=searchProfiles;$("loadTrendingReels").onclick=loadTrendingReels;$("searchHashtags").onclick=searchHashtags;$("hashtagQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchHashtags()});$("profileSearchQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchProfiles()});$("loadComments").onclick=()=>lookupMediaList("comments");$("loadLikers").onclick=()=>lookupMediaList("likers");
 $("loadFollowers").onclick=()=>loadFollowers(true);$("moreFollowers").onclick=()=>loadFollowers(false);
 
 status();
