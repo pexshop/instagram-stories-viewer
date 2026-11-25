@@ -45,7 +45,7 @@ footer{color:#77838e;font-size:11px;line-height:1.6;text-align:center;margin-top
 <script>
 (function(){
 "use strict";
-const $=id=>document.getElementById(id);let last="";const STORE_KEY="spotify_embed_player_state_v1";
+const $=id=>document.getElementById(id);let last="";const STORE_KEY="spotify_embed_player_state_v1";const LIST_KEY="spotify_embed_saved_list_v1";
 function say(s,error){$("status").textContent=s;$("status").className="status"+(error?" error":"");}
 function parseLink(raw){
  const value=raw.trim();if(!value)throw new Error("请先粘贴 Spotify 链接。");
@@ -74,8 +74,11 @@ function load(raw,quiet){
 }
 $("load").addEventListener("click",()=>{try{load($("spotifyLink").value);}catch(e){say(e.message,true);}});
 $("resume").addEventListener("click",()=>{try{const raw=$("spotifyLink").value.trim();if(!raw)throw new Error("没有保存的歌曲链接，请重新粘贴 Spotify 链接。");load(raw);say("播放器已重新载入。请手动点击播放；iPhone 返回浏览器后可能需要重新开始播放。");}catch(e){say(e.message,true);}});
-$("playlistLinks").addEventListener("input",()=>{try{localStorage.setItem(STORE_KEY,JSON.stringify({link:$("spotifyLink").value,playlist:$("playlistLinks").value}));}catch(e){}});
-try{const saved=JSON.parse(localStorage.getItem(STORE_KEY)||"null");if(saved){if(saved.playlist)$("playlistLinks").value=saved.playlist;if(saved.link){$("spotifyLink").value=saved.link;load(saved.link,true);say("已自动载入上次歌曲并尝试自动播放；若浏览器阻止声音，请点击播放按钮。");}}}catch(e){}
+function savePlaylist(){try{const value=$("playlistLinks").value;localStorage.setItem(LIST_KEY,value);localStorage.setItem(STORE_KEY,JSON.stringify({link:$("spotifyLink").value,playlist:value}));}catch(e){}}
+$("playlistLinks").addEventListener("input",savePlaylist);
+$("playlistLinks").addEventListener("change",savePlaylist);
+window.addEventListener("pagehide",savePlaylist);
+try{const saved=JSON.parse(localStorage.getItem(STORE_KEY)||"null");const savedList=localStorage.getItem(LIST_KEY);const listValue=savedList!==null?savedList:(saved&&saved.playlist)||"";if(listValue)$("playlistLinks").value=listValue;const count=listValue.split(/\\r?\\n/).map(x=>x.trim()).filter(Boolean).length;if(saved&&saved.link){$("spotifyLink").value=saved.link;load(saved.link,true);say("已恢复上次歌曲列表（"+count+" 首）及上次歌曲。可直接随机选择。");}else if(count){say("已恢复上次歌曲列表（"+count+" 首）。可直接随机选择。");}}catch(e){}
 window.addEventListener("pageshow",()=>{try{const saved=JSON.parse(localStorage.getItem(STORE_KEY)||"null");if(saved&&saved.link&&!$("embed").querySelector("iframe")){ $("spotifyLink").value=saved.link;load(saved.link,true);say("已自动恢复上次歌曲并尝试播放；若没有声音，请点击播放器中的播放按钮。");}}catch(e){}});
 $("search").addEventListener("click",()=>{
  const q=$("spotifyLink").value.trim();
@@ -91,7 +94,7 @@ $("random").addEventListener("click",()=>{
  const chosen=choices[Math.floor(Math.random()*choices.length)];
  try{$("spotifyLink").value=chosen;load(chosen);say("已随机选择一首。点击播放器开始播放。");}catch(e){say(e.message,true);}
 });
-$("clear").addEventListener("click",()=>{$("embed").replaceChildren();$("embed").hidden=true;$("spotifyLink").value="";last="";try{localStorage.removeItem(STORE_KEY);}catch(e){}say("播放器已清空。");});
+$("clear").addEventListener("click",()=>{$("embed").replaceChildren();$("embed").hidden=true;$("spotifyLink").value="";last="";try{localStorage.removeItem(STORE_KEY);localStorage.removeItem(LIST_KEY);}catch(e){}say("播放器和已保存歌曲列表已清空。");});
 })();
 </script>
 </body></html>
