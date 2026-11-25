@@ -1,5 +1,6 @@
 import os
 import re
+from importlib.metadata import version
 import threading
 from datetime import datetime, timezone
 from typing import Any
@@ -153,7 +154,7 @@ def post_from_url(url: str):
 
 @app.get("/health")
 def health():
-    return {"ok": True, "provider": "Instaloader", "version": instaloader.__version__, "authenticated": bool(LOGIN_USER and loader().context.is_logged_in)}
+    return {"ok": True, "provider": "Instaloader", "version": version("instaloader"), "authenticated": bool(LOGIN_USER and loader().context.is_logged_in)}
 
 
 @app.get("/v1/instagram/profile")
