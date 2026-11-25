@@ -25,6 +25,8 @@ button{font:inherit;cursor:pointer;border:0;border-radius:11px;padding:12px 16px
 .results{display:grid;gap:7px;margin-top:14px}.result{display:flex;justify-content:space-between;align-items:center;gap:10px;background:#ffffff09;border:1px solid #ffffff15;border-radius:10px;padding:10px 12px}
 .result div{min-width:0}.result strong{display:block;font-size:13px;overflow-wrap:anywhere}.result small{display:block;color:#aab5bf;margin-top:3px}
 .result button{flex:none;padding:8px 11px;font-size:12px}
+.embed{margin-top:16px;overflow:hidden;border-radius:12px;min-height:152px;background:#000}
+.embed iframe{display:block;width:100%;height:152px;border:0}
 .hidden{display:none!important}
 footer{color:#77838e;font-size:11px;line-height:1.6;text-align:center;margin-top:18px}
 @media(max-width:480px){main{padding-top:18px}.card{padding:17px}.controls{grid-template-columns:1fr 1fr}.search{flex-direction:column}.search button{width:100%}}
@@ -35,20 +37,20 @@ footer{color:#77838e;font-size:11px;line-height:1.6;text-align:center;margin-top
 <main>
 <section class="card">
 <h1>Justin Bieber 随机播放</h1>
-<div class="muted">使用你的 Spotify Premium 账号，通过 Spotify 官方播放器播放音乐。歌曲不会下载或保存在本网站。</div>
-<div class="notice">这是独立音乐页面。请不要在播放 Spotify 音乐时同时展示或播放 Instagram 视频；Spotify 平台不允许将录音与视频或其他视觉媒体同步。</div>
-<button id="connect" class="primary">连接 Spotify Premium</button>
+<div class="muted">使用 Spotify 官方嵌入式播放器。免费账号可尝试播放，具体曲目、广告和播放限制由 Spotify 账号及所在地区决定。</div>
+<div class="notice">这是独立音乐页面。Spotify 播放器与 Instagram 视频分开使用；请勿将 Spotify 音乐与 Instagram 视频或其他视觉媒体同步。</div>
+<button id="connect" class="primary">连接 Spotify 账号</button>
 <div id="playerControls" class="hidden">
 <div class="track">
-<div class="muted">正在播放</div>
+<div class="muted">当前选择</div>
 <div id="trackTitle" class="track-title">尚未选择歌曲</div>
-<div id="trackArtist" class="track-artist">连接后点击随机播放</div>
+<div id="trackArtist" class="track-artist">搜索或随机选择一首歌曲</div>
+<div id="embed" class="embed hidden"></div>
 </div>
 <div class="controls">
-<button id="random" class="primary">随机播放 Justin Bieber</button>
-<button id="next" class="secondary">下一首</button>
-<button id="toggle" class="secondary">暂停 / 继续</button>
-<button id="disconnect" class="secondary">断开连接</button>
+<button id="random" class="primary">随机选择 Justin Bieber</button>
+<button id="next" class="secondary">换一首</button>
+<button id="disconnect" class="secondary">断开账号</button>
 </div>
 <div class="search">
 <input id="query" value="Justin Bieber" aria-label="搜索歌曲" placeholder="搜索歌曲或艺人">
@@ -58,16 +60,16 @@ footer{color:#77838e;font-size:11px;line-height:1.6;text-align:center;margin-top
 </div>
 <div id="status" class="status">尚未连接 Spotify。</div>
 </section>
-<footer>需要 Spotify Premium。首次播放必须由你点击启动；iPhone Safari 不保证网页打开时自动播放声音。此播放器只用于独立播放，不与 Instagram 内容同步。</footer>
+<footer>使用 Spotify 官方嵌入式播放器，不使用 Premium 专属 Web Playback SDK。免费账号可能受到广告、跳过次数、点播和地区可用性限制。</footer>
 </main>
 <script>
 (function(){
 "use strict";
 const CLIENT_ID="fbbc547055684f78b19063f305391703";
 const REDIRECT_URI=location.origin+"/spotify/callback";
-const SCOPES=["streaming","user-read-email","user-read-private","user-read-playback-state","user-modify-playback-state"];
+const SCOPES=["user-read-private"];
 const $=id=>document.getElementById(id);
-let token=null,refreshToken=null,expiresAt=0,player=null,deviceId=null,tracks=[],lastTrackId="",endTimer=null,lastPaused=null;
+let token=null,refreshToken=null,expiresAt=0,tracks=[],lastTrackId="";
 function say(message,error){$("status").textContent=message;$("status").className="status"+(error?" error":"");}
 function b64url(bytes){let binary="";bytes.forEach(b=>binary+=String.fromCharCode(b));return btoa(binary).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");}
 function randomString(size){const bytes=new Uint8Array(size);crypto.getRandomValues(bytes);return b64url(bytes);}
@@ -102,80 +104,54 @@ async function validToken(){
  const data=await response.json();if(!response.ok)throw new Error(data.error_description||"Spotify 令牌刷新失败，请重新连接。");
  saveTokens(data);return token;
 }
-async function api(path,options){
- const access=await validToken(),response=await fetch("https://api.spotify.com/v1"+path,Object.assign({headers:{Authorization:"Bearer "+access,"Content-Type":"application/json"}},options||{}));
- if(response.status===204)return null;
+async function api(path){
+ const access=await validToken(),response=await fetch("https://api.spotify.com/v1"+path,{headers:{Authorization:"Bearer "+access}});
  const data=await response.json().catch(()=>({}));
  if(!response.ok)throw new Error(data.error?.message||("Spotify API 请求失败（"+response.status+"）"));
  return data;
-}
-function loadSdk(){
- if(window.Spotify){initializePlayer();return;}
- window.onSpotifyWebPlaybackSDKReady=initializePlayer;
- const script=document.createElement("script");script.src="https://sdk.scdn.co/spotify-player.js";script.async=true;script.onerror=()=>say("Spotify 播放器 SDK 加载失败，请刷新重试。",true);document.head.appendChild(script);
-}
-function initializePlayer(){
- if(player)return;
- player=new Spotify.Player({name:"Private Spotify Player",volume:0.75,getOAuthToken:callback=>validToken().then(callback).catch(e=>say(e.message,true))});
- player.addListener("ready",({device_id})=>{deviceId=device_id;$("playerControls").classList.remove("hidden");$("connect").classList.add("hidden");say("Spotify 已连接。现在可以点击随机播放。");});
- player.addListener("not_ready",()=>{deviceId=null;say("Spotify 播放设备暂时离线。",true);});
- player.addListener("initialization_error",e=>say("播放器初始化失败："+e.message,true));
- player.addListener("authentication_error",e=>say("Spotify 身份验证失败："+e.message,true));
- player.addListener("account_error",e=>say("账号暂不支持网页播放："+e.message,true));
- player.addListener("playback_error",e=>say("播放失败："+e.message,true));
- player.addListener("player_state_changed",state=>{
-  if(!state)return;
-  const current=state.track_window.current_track;
-  if(current){$("trackTitle").textContent=current.name;$("trackArtist").textContent=current.artists.map(a=>a.name).join(", ");}
-  const key=(current&&current.id||"")+(state.paused?"-paused":"-playing");
-  if(key!==lastTrackId+String(lastPaused)){
-   clearTimeout(endTimer);lastTrackId=current&&current.id||"";lastPaused=state.paused;
-   if(!state.paused&&current){const remaining=Math.max(1000,state.duration-state.position);endTimer=setTimeout(()=>nextTrack(true),remaining+1200);}
-  }
- });
- say("授权成功，正在连接 Spotify 播放设备…");let settled=false;const timer=setTimeout(()=>{if(!settled&&!deviceId)say("授权已完成，但播放器仍未就绪。请确认 Safari 未阻止音频，并点击页面后重试；也可刷新页面。",true);},12000);player.connect().then(ok=>{settled=true;clearTimeout(timer);if(!ok)say("Spotify 播放设备连接失败。请刷新后重试。",true);}).catch(e=>{settled=true;clearTimeout(timer);say("Spotify 播放设备连接失败："+e.message,true);});
 }
 async function searchTracks(){
  const query=$("query").value.trim()||"Justin Bieber";
  say("正在搜索 Spotify 曲库…");
  const data=await api("/search?"+new URLSearchParams({q:query,type:"track",limit:"50"}).toString());
- tracks=(data.tracks?.items||[]).filter(t=>t&&t.uri&&t.is_playable!==false);
+ tracks=(data.tracks?.items||[]).filter(t=>t&&t.uri&&t.id);
  renderResults(tracks);
- say("找到 "+tracks.length+" 首可播放歌曲。");
+ say("找到 "+tracks.length+" 首歌曲。选择歌曲后由 Spotify 官方播放器播放。");
 }
 function renderResults(items){
  const box=$("results");box.textContent="";
  items.slice(0,30).forEach(track=>{
   const row=document.createElement("div");row.className="result";
   const info=document.createElement("div"),name=document.createElement("strong"),artist=document.createElement("small"),button=document.createElement("button");
-  name.textContent=track.name;artist.textContent=track.artists.map(a=>a.name).join(", ");button.className="secondary";button.textContent="播放";
-  button.addEventListener("click",()=>playTrack(track));info.append(name,artist);row.append(info,button);box.append(row);
+  name.textContent=track.name;artist.textContent=track.artists.map(a=>a.name).join(", ");button.className="secondary";button.textContent="打开播放";
+  button.addEventListener("click",()=>selectTrack(track));info.append(name,artist);row.append(info,button);box.append(row);
  });
 }
-async function playTrack(track){
- if(!deviceId)throw new Error("Spotify 播放器尚未就绪，请稍候。");
- await api("/me/player/play?device_id="+encodeURIComponent(deviceId),{method:"PUT",body:JSON.stringify({uris:[track.uri]})});
- $("trackTitle").textContent=track.name;$("trackArtist").textContent=track.artists.map(a=>a.name).join(", ");say("正在播放："+track.name);
+function selectTrack(track){
+ if(!track||!track.id)throw new Error("歌曲信息无效。");
+ lastTrackId=track.id;$("trackTitle").textContent=track.name;$("trackArtist").textContent=track.artists.map(a=>a.name).join(", ");
+ const frame=document.createElement("iframe");
+ frame.title="Spotify 播放器："+track.name;
+ frame.src="https://open.spotify.com/embed/track/"+encodeURIComponent(track.id)+"?utm_source=generator&theme=0";
+ frame.width="100%";frame.height="152";frame.allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture";
+ frame.loading="lazy";frame.referrerPolicy="strict-origin-when-cross-origin";
+ const host=$("embed");host.textContent="";host.appendChild(frame);host.classList.remove("hidden");
+ say("已载入 Spotify 官方播放器。点击播放器内的播放按钮开始播放。");
 }
-async function nextTrack(automatic){
- if(!tracks.length)await searchTracks();
- if(!tracks.length)throw new Error("没有找到可播放的 Justin Bieber 歌曲。");
- let candidates=tracks;
- if(tracks.length>1)candidates=tracks.filter(t=>t.id!==lastTrackId);
- const chosen=candidates[Math.floor(Math.random()*candidates.length)];
- await playTrack(chosen);
- if(automatic)say("上一首播放结束，已随机切换："+chosen.name);
+function randomTrack(){
+ if(!tracks.length)throw new Error("请先搜索歌曲。");
+ let choices=tracks.filter(t=>t.id!==lastTrackId);if(!choices.length)choices=tracks;
+ const chosen=choices[Math.floor(Math.random()*choices.length)];selectTrack(chosen);
 }
-async function togglePlayback(){if(!player)throw new Error("播放器尚未连接。");const state=await player.getCurrentState();if(!state){say("当前没有正在播放的歌曲。",true);return;}if(state.paused)await player.resume();else await player.pause();}
 function disconnect(){
- if(player){player.disconnect();player=null;}deviceId=null;token=null;refreshToken=null;expiresAt=0;
+ token=null;refreshToken=null;expiresAt=0;
  ["spotify_access_token","spotify_expires_at","spotify_refresh_token","spotify_pkce_verifier","spotify_oauth_state"].forEach(k=>sessionStorage.removeItem(k));
- $("playerControls").classList.add("hidden");$("connect").classList.remove("hidden");$("trackTitle").textContent="尚未选择歌曲";$("trackArtist").textContent="已断开";clearTimeout(endTimer);say("已断开 Spotify。");
+ $("playerControls").classList.add("hidden");$("connect").classList.remove("hidden");$("embed").textContent="";$("embed").classList.add("hidden");
+ $("trackTitle").textContent="尚未选择歌曲";$("trackArtist").textContent="已断开";say("已断开 Spotify 账号。");
 }
 $("connect").addEventListener("click",()=>login().catch(e=>say(e.message,true)));
-$("random").addEventListener("click",()=>nextTrack(false).catch(e=>say(e.message,true)));
-$("next").addEventListener("click",()=>nextTrack(false).catch(e=>say(e.message,true)));
-$("toggle").addEventListener("click",()=>togglePlayback().catch(e=>say(e.message,true)));
+$("random").addEventListener("click",()=>{try{randomTrack();}catch(e){say(e.message,true);}});
+$("next").addEventListener("click",()=>{try{randomTrack();}catch(e){say(e.message,true);}});
 $("disconnect").addEventListener("click",disconnect);
 $("search").addEventListener("click",()=>searchTracks().catch(e=>say(e.message,true)));
 $("query").addEventListener("keydown",e=>{if(e.key==="Enter")searchTracks().catch(err=>say(err.message,true));});
@@ -183,7 +159,7 @@ $("query").addEventListener("keydown",e=>{if(e.key==="Enter")searchTracks().catc
  try{
   if(new URLSearchParams(location.search).has("code")||new URLSearchParams(location.search).has("error")){const exchanged=await exchangeCode();if(!exchanged)throw new Error("Spotify 回调缺少授权码。");}
   token=sessionStorage.getItem("spotify_access_token");refreshToken=sessionStorage.getItem("spotify_refresh_token");expiresAt=Number(sessionStorage.getItem("spotify_expires_at")||0);
-  if(token){$("playerControls").classList.remove("hidden");$("connect").classList.add("hidden");loadSdk();say("正在恢复 Spotify 连接…");}
+  if(token){$("playerControls").classList.remove("hidden");$("connect").classList.add("hidden");say("Spotify 账号已连接。可搜索歌曲并使用官方播放器。");}
   else say("尚未连接 Spotify。点击上方按钮授权。");
  }catch(e){say(e.message,true);$("connect").classList.remove("hidden");}
 })();
