@@ -379,12 +379,13 @@ async function advanceHistoryPostPlayback(){
   const p=accounts[n];$("mediaModalTitle").textContent="正在切换到 @"+p+" 的帖子…";
   try{const d=await api("/api/media?username="+encodeURIComponent(p)+"&tab=posts");const items=Array.isArray(d.media)?d.media:[];
    if(d.lookupStatus==="private"||d.lookupStatus==="not_found"||!items.length)continue;
-   modalProfile=p;modalItems=items;modalIndex=0;$("profile").value=p;syncProfileUrl();renderMediaModal();msg("已自动切换到下一个观看记录账号 @"+p+" 的帖子");return;
+   modalProfile=p;modalItems=flattenHistoryPosts(items);modalIndex=0;$("profile").value=p;syncProfileUrl();renderMediaModal();msg("已自动切换到下一个观看记录账号 @"+p+" 的帖子");return;
   }catch(e){msg("@"+p+" 帖子读取失败，继续下一个账号…")}
  }
  modalAutoplay=false;closeMediaModal();msg("所有观看记录账号的帖子已播放完毕。");
 }
-function startHistoryPostPlayback(items,i,p){const queue=[];let start=0;(items||[]).forEach((entry,n)=>{const parts=Array.isArray(entry.carousel)&&entry.carousel.length?entry.carousel:[entry];if(n<i)start+=parts.length;queue.push(...parts)});openMediaModal(queue,Math.min(start,Math.max(0,queue.length-1)),p,true)}
+function flattenHistoryPosts(items){return(items||[]).flatMap(entry=>Array.isArray(entry.carousel)&&entry.carousel.length?entry.carousel:[entry])}
+function startHistoryPostPlayback(items,i,p){const queue=flattenHistoryPosts(items);let start=0;(items||[]).slice(0,i).forEach(entry=>{start+=Array.isArray(entry.carousel)&&entry.carousel.length?entry.carousel.length:1});openMediaModal(queue,Math.min(start,Math.max(0,queue.length-1)),p,true)}
 function stepMediaModal(delta){if(!modalItems.length)return;modalIndex=(modalIndex+delta+modalItems.length)%modalItems.length;renderMediaModal()}
 $("mediaModalClose").onclick=closeMediaModal;$("mediaModalPrev").onclick=()=>stepMediaModal(-1);$("mediaModalNext").onclick=()=>stepMediaModal(1);
 $("mediaModal").addEventListener("click",e=>{if(e.target===$("mediaModal"))closeMediaModal()});
