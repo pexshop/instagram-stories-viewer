@@ -312,13 +312,13 @@ async function api(path,options={}){
  const key=method+" "+path;
  if(method==="GET"&&apiInFlight.has(key))return apiInFlight.get(key);
  const task=(async()=>{
-  const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),15000);
+  const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),35000);
   try{
    const r=await fetch(path,{...options,signal:controller.signal,credentials:"same-origin",headers:{"accept":"application/json",...(options.headers||{})}});
    const d=await r.json().catch(()=>({}));
    if(!r.ok)throw Error(d.error||("请求失败（HTTP "+r.status+"）"));
    return d;
-  }catch(e){if(e.name==="AbortError")throw Error("请求超过 15 秒仍未完成，已停止等待。请检查网络或第三方 API 状态。");throw e}
+  }catch(e){if(e.name==="AbortError")throw Error("请求超过 35 秒仍未完成，已停止等待。请检查网络或第三方 API 状态。");throw e}
   finally{clearTimeout(timeout);apiInFlight.delete(key)}
  })();
  if(method==="GET")apiInFlight.set(key,task);
