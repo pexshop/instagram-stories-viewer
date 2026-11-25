@@ -26,6 +26,18 @@
 <div class="divider"></div><h2>播放设置</h2><label class="field" for="duration">图片播放时长</label><select id="duration"><option value="5000">5 秒</option><option value="7000" selected>7 秒</option><option value="10000">10 秒</option><option value="15000">15 秒</option></select><label class="field"><input type="checkbox" id="loop" checked> 播放结束后循环</label>
 <div id="message" class="err"></div><p class="small">仅限公开可访问内容。私密账号、已过期快拍或受限制内容不会返回。第三方服务可能收费、限流，媒体链接也可能过期。</p></aside></div>
 <section class="profile-view"><h2 style="margin:0 0 8px;font-size:18px">公开 Instagram 主页</h2><p style="color:#aaa;font-size:13px;line-height:1.6">在本站查看公开主页资料与最近帖子，不需要跳转 Instagram。输入上方用户名后点击这里加载主页。</p><button class="primary" id="loadProfile" type="button">在本站打开主页</button><div id="profileResult"></div><div class="profile-note">仅显示第三方 API 能获取的公开资料。私密内容不可查看；图片和视频地址可能过期。点击帖子可在本站预览。</div></section>
+<section class="profile-view">
+<h2 style="margin:0 0 8px;font-size:18px">发现公开账号</h2>
+<p style="color:#aaa;font-size:13px;line-height:1.6">按名称或关键词搜索 Instagram 公开账号。搜索结果受 Instagram 和第三方 API 可见范围限制。</p>
+<div class="embed-form"><input id="profileSearchQuery" placeholder="搜索账号或关键词，例如 travel"><button class="primary" id="searchProfiles" type="button" style="width:auto;min-width:110px">搜索账号</button></div>
+<div id="profileSearchResults" class="followers-list"></div>
+<div class="divider"></div>
+<h2 style="margin:0 0 8px;font-size:18px">帖子 / Reels 评论与点赞者</h2>
+<p style="color:#aaa;font-size:13px;line-height:1.6">粘贴公开 Instagram 帖子或 Reels 链接，查看可获取的评论和点赞者名单。</p>
+<input id="mediaLookupUrl" placeholder="https://www.instagram.com/p/… 或 /reel/…" style="width:100%;background:#09090d;border:1px solid #ffffff26;color:#fff;padding:12px;border-radius:10px">
+<div class="row"><button class="secondary" id="loadComments" type="button">查看评论</button><button class="secondary" id="loadLikers" type="button">查看点赞者</button></div>
+<div id="mediaLookupResults" style="margin-top:12px"></div>
+</section>
 </main>
 <script>
 const $=id=>document.getElementById(id);let accounts=[],stories=[],followersCursor=null,followersProfile="",followersSampled=false,index=0,tick=null,paused=false,startAt=0,duration=7000,elapsedBeforePause=0,activeUrl=null,currentProfile="";
@@ -106,7 +118,39 @@ async function loadFollowers(reset=true){
  finally{btn.disabled=false;more.disabled=false}
 }
 
-$("loadProfile").onclick=loadProfile;
+async function searchProfiles(){
+ const q=$("profileSearchQuery").value.trim();if(!q){msg("请输入账号搜索关键词。");return}
+ const box=$("profileSearchResults");box.textContent="正在搜索公开账号…";
+ try{const d=await api("/api/search/profiles?query="+encodeURIComponent(q));box.replaceChildren();
+  if(!d.accounts?.length){box.textContent="没有找到公开账号。";return}
+  d.accounts.forEach(a=>{const card=document.createElement("div");card.className="follower-card";
+   const img=document.createElement("img");img.src=a.avatarUrl||"";img.alt="";img.loading="lazy";img.onerror=()=>img.style.visibility="hidden";
+   const info=document.createElement("div");info.style.minWidth="0";
+   const name=document.createElement("div");name.className="follower-name";name.textContent=(a.displayName||a.handle||"Instagram 用户")+(a.verified?" ✓":"");
+   const handle=document.createElement("div");handle.className="follower-handle";handle.textContent=a.handle?"@"+a.handle:"";
+   const open=document.createElement("button");open.className="secondary";open.type="button";open.textContent="打开主页";open.onclick=()=>{$("profile").value=a.handle||"";syncProfileUrl();rememberProfile();loadProfile();window.scrollTo({top:0,behavior:"smooth"})};
+   info.append(name,handle,open);card.append(img,info);box.append(card);
+  });msg("搜索完成 · "+d.accounts.length+" 个账号 · 本次 "+(d.creditsCharged??"?")+" credits");
+ }catch(e){box.textContent=e.message}
+}
+async function lookupMediaList(kind){
+ const media=$("mediaLookupUrl").value.trim();if(!media){msg("请粘贴公开帖子或 Reels 链接。");return}
+ const box=$("mediaLookupResults");box.textContent=kind==="comments"?"正在读取评论…":"正在读取点赞者…";
+ try{const d=await api("/api/"+kind+"?media="+encodeURIComponent(media)+(kind==="comments"?"&sort=top":""));box.replaceChildren();
+  const items=kind==="comments"?(d.comments||[]):(d.accounts||[]);
+  if(d.lookupStatus==="not_found"||!items.length){box.textContent="没有可显示的结果，内容可能已删除、不可公开访问或没有评论/点赞。";return}
+  items.forEach(item=>{const row=document.createElement("div");row.className="follower-card";row.style.marginBottom="7px";
+   if(kind==="comments"){const author=item.author||{};const body=document.createElement("div");body.style.minWidth="0";
+    const who=document.createElement("strong");who.textContent=author.handle?"@"+author.handle:"Instagram 用户";
+    const textNode=document.createElement("div");textNode.style.cssText="font-size:13px;color:#ddd;margin-top:5px;white-space:pre-wrap";textNode.textContent=item.text||"[媒体评论]";
+    const meta=document.createElement("div");meta.className="follower-handle";meta.textContent=(item.likeCount??0)+" 赞 · "+(item.replyCount??0)+" 回复";
+    body.append(who,textNode,meta);row.append(body);
+   }else{const body=document.createElement("div");body.textContent=(item.handle?"@"+item.handle:"Instagram 用户")+(item.verified?" ✓":"");row.append(body)}
+   box.append(row);
+  });const note=document.createElement("p");note.className="profile-note";note.textContent=(kind==="comments"?"评论":"点赞者")+" · "+items.length+" 条"+(d.sampled?" · 样本数据":"")+" · 本次 "+(d.creditsCharged??"?")+" credits";box.append(note);
+ }catch(e){box.textContent=e.message}
+}
+$("loadProfile").onclick=loadProfile;$("searchProfiles").onclick=searchProfiles;$("profileSearchQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchProfiles()});$("loadComments").onclick=()=>lookupMediaList("comments");$("loadLikers").onclick=()=>lookupMediaList("likers");
 $("loadFollowers").onclick=()=>loadFollowers(true);$("moreFollowers").onclick=()=>loadFollowers(false);
 
 status();
