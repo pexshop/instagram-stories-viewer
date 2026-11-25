@@ -85,12 +85,30 @@ function cleanProfile(value){
  if(!/^[A-Za-z0-9._]{1,30}$/.test(raw))throw new Error("请输入有效的 Instagram 用户名，或 instagram.com 用户主页链接。");
  return raw;
 }
+async function providerCreditState(env,action=null){
+ if(!env.RATE_LIMITER)throw new Error("安全限流服务暂不可用。");
+ const id=env.RATE_LIMITER.idFromName("socialfetch-credit-guard");
+ const stub=env.RATE_LIMITER.get(id);
+ const response=await stub.fetch("https://rate-limiter.internal/credit-state"+(action?"/exhausted":""),{
+  method:action?"POST":"GET",
+  headers:{"content-type":"application/json"},
+  body:action?JSON.stringify({pauseMs:24*60*60*1000}):undefined
+ });
+ if(!response.ok)throw new Error("第三方额度保护状态暂不可用。");
+ return response.json();
+}
 async function social(path,env){
  if(!env.SOCIALFETCH_API_KEY){
   const error=new Error("第三方服务尚未配置，请联系网站管理员。");error.status=503;throw error;
  }
  if(typeof path!=="string"||!path.startsWith("/v2/instagram/")||path.includes("..")||path.length>1800){
   const error=new Error("无效的上游请求。");error.status=400;throw error;
+ }
+ let guard;
+ try{guard=await providerCreditState(env);}catch{const error=new Error("额度保护服务暂不可用，已停止第三方请求。");error.status=503;throw error;}
+ if(guard.paused){
+  const error=new Error("第三方 API 额度已耗尽，已自动暂停请求以避免继续消耗。额度恢复后可自动重新检测。");
+  error.status=503;error.retryAt=guard.retryAt;throw error;
  }
  let response;
  try{
@@ -117,8 +135,13 @@ async function social(path,env){
   const error=new Error("第三方服务返回了无效数据。");error.status=502;throw error;
  }
  if(!response.ok){
-  const status=response.status===429?429:response.status===401?503:response.status===402?503:502;
-  const message=response.status===429?"第三方服务请求繁忙，请稍后重试。":response.status===401?"第三方服务认证暂不可用。":response.status===402?"第三方服务额度暂不可用。":"第三方服务请求失败，请稍后重试。";
+  if(response.status===402){
+   try{await providerCreditState(env,"exhausted");}catch{}
+   const error=new Error("第三方 API 额度已耗尽，已自动暂停请求以避免继续消耗。");
+   error.status=503;throw error;
+  }
+  const status=response.status===429?429:response.status===401?503:502;
+  const message=response.status===429?"第三方服务请求繁忙，请稍后重试。":response.status===401?"第三方服务认证暂不可用。":"第三方服务请求失败，请稍后重试。";
   const error=new Error(message);error.status=status;throw error;
  }
  return data;
@@ -141,6 +164,23 @@ function normalize(items){
 export class RateLimiter {
  constructor(state,env){this.state=state;this.env=env;}
  async fetch(request){
+  const url=new URL(request.url);
+  if(url.pathname==="/credit-state"){
+   if(request.method!=="GET")return new Response("Method not allowed",{status:405});
+   const state=await this.state.storage.get("creditGuard");
+   const now=Date.now();
+   if(state?.pausedUntil&&state.pausedUntil<=now){await this.state.storage.delete("creditGuard");return Response.json({paused:false});}
+   return Response.json({paused:!!state?.pausedUntil,retryAt:state?.pausedUntil||null},{headers:{"cache-control":"no-store"}});
+  }
+  if(url.pathname==="/credit-state/exhausted"){
+   if(request.method!=="POST")return new Response("Method not allowed",{status:405});
+   const input=await request.json().catch(()=>({}));
+   const pauseMs=Math.max(60_000,Math.min(30*24*60*60*1000,Number(input.pauseMs)||24*60*60*1000));
+   const pausedUntil=Date.now()+pauseMs;
+   await this.state.storage.put("creditGuard",{pausedUntil});
+   await this.state.storage.setAlarm(pausedUntil);
+   return Response.json({paused:true,retryAt:pausedUntil},{headers:{"cache-control":"no-store"}});
+  }
   if(request.method!=="POST")return new Response("Method not allowed",{status:405});
   let input;
   try{input=await request.json()}catch{return new Response("Bad request",{status:400});}
@@ -184,7 +224,12 @@ export default {
     return withSecurity(Response.redirect(target.toString(),302));
    }
    if(url.pathname==="/api/health") return json({ok:true,service:"instagram-stories-viewer",provider:"Social Fetch",apiKeyConfigured:!!env.SOCIALFETCH_API_KEY});
-   if(url.pathname==="/api/status") { const configured=!!env.SOCIALFETCH_API_KEY; return json({connected:configured,provider:"Social Fetch",apiKeyConfigured:configured,connectionState:configured?"configured":"missing_key",requiresMetaLogin:false}); }
+   if(url.pathname==="/api/status") {
+    const configured=!!env.SOCIALFETCH_API_KEY;
+    let credits={paused:false,retryAt:null};
+    if(configured){try{credits=await providerCreditState(env);}catch{credits={paused:true,retryAt:null,guardUnavailable:true};}}
+    return json({connected:configured&&!credits.paused,provider:"Social Fetch",apiKeyConfigured:configured,connectionState:!configured?"missing_key":credits.paused?"credits_exhausted":"configured",providerPaused:!!credits.paused,automaticRetryAt:credits.retryAt||null,creditGuardUnavailable:!!credits.guardUnavailable,requiresMetaLogin:false});
+   }
    if(url.pathname==="/api/profile"){
     const profile=cleanProfile(url.searchParams.get("username"));
     const result=await social("/v2/instagram/profiles/"+encodeURIComponent(profile)+"?include=recentMedia,about",env);
@@ -277,6 +322,6 @@ export default {
    }
    if(url.pathname.startsWith("/api/")) return json({error:"Not found"},404);
    return env.ASSETS?await secureAssetResponse(await env.ASSETS.fetch(request)):withSecurity(new Response("Static assets binding missing",{status:500}));
-  }catch(e){const status=Number.isInteger(e.status)?e.status:400;return url.pathname.startsWith("/api/")?json({error:e.message||"请求失败"},status):withSecurity(new Response("服务暂时不可用",{status:503}));}
+  }catch(e){const status=Number.isInteger(e.status)?e.status:400;return url.pathname.startsWith("/api/")?json({error:e.message||"请求失败",retryAt:e.retryAt||null},status):withSecurity(new Response("服务暂时不可用",{status:503}));}
  }
 };
