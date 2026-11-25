@@ -142,13 +142,19 @@ async function social(path,env){
   const error=new Error("第三方服务返回了无效数据。");error.status=502;throw error;
  }
  if(!response.ok){
-  if(response.status===402){
+  const providerError=String(data?.error?.code||data?.error?.type||data?.error||data?.code||"").toLowerCase();
+  const insufficient=providerError.includes("insufficient_credits")||providerError.includes("credit_balance")||providerError.includes("credits_exhausted");
+  if(response.status===402&&insufficient){
    try{await providerCreditState(env,"exhausted");}catch{}
-   const error=new Error("第三方 API 额度已耗尽，已自动暂停请求以避免继续消耗。");
+   const error=new Error("Social Fetch 账户免费额度或可用额度不足，已暂停请求 24 小时以避免重复消耗。请检查 API 账户额度。");
    error.status=503;throw error;
   }
-  const status=response.status===429?429:response.status===401?503:502;
-  const message=response.status===429?"第三方服务请求繁忙，请稍后重试。":response.status===401?"第三方服务认证暂不可用。":"第三方服务请求失败，请稍后重试。";
+  if(response.status===402){
+   const error=new Error("Social Fetch 返回 402：API 密钥可能未正确传入，或密钥/账户额度受限。请确认 Cloudflare Secret 名称为 SOCIALFETCH_API_KEY，且密钥以 sfk_ 开头。");
+   error.status=503;throw error;
+  }
+  const status=response.status===429?429:response.status===401?503:response.status===403?503:502;
+  const message=response.status===429?"Social Fetch 请求过于频繁，请稍后重试。":response.status===401?"Social Fetch API 密钥无效、已撤销或过期。请更新 SOCIALFETCH_API_KEY。":response.status===403?"Social Fetch API 密钥有效，但当前账户或权限不允许请求，请检查账户状态。":"Social Fetch 上游请求失败，请稍后重试。";
   const error=new Error(message);error.status=status;throw error;
  }
  return data;
