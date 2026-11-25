@@ -398,7 +398,8 @@ status();
   canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
   canvas.style.width=w+"px";canvas.style.height=h+"px";
   ctx.setTransform(dpr,0,0,dpr,0,0);
-  const mobile=window.innerWidth<700;\n   const count=Math.min(mobile?110:260,Math.max(mobile?70:120,Math.round(w*h/(mobile?9500:5200))));
+  const mobile=window.innerWidth<700;
+   const count=Math.min(mobile?110:260,Math.max(mobile?70:120,Math.round(w*h/(mobile?9500:5200))));
   stars=Array.from({length:count},()=>{const depth=rand(.25,1);return{x:rand(0,w),y:rand(0,h),r:rand(.25,1.55)*depth,a:rand(.28,.92),phase:rand(0,Math.PI*2),speed:rand(.35,1.25),drift:rand(.025,.16)*depth,depth,color:Math.random()>.88?"#b9d7ff":(Math.random()>.88?"#ffe5c2":"#e4edff")};});
  }
  function addShooter(){
@@ -410,6 +411,7 @@ status();
  }
  function draw(t){
   if(!w||!h)return;
+  if(t-last<33){raf=requestAnimationFrame(draw);return;}
   const dt=Math.min((t-last)/16.67||1,2);last=t;
   ctx.clearRect(0,0,w,h);
   // NASA astrophotography supplies nebula and galaxy detail; this canvas animates stars only.
@@ -462,8 +464,9 @@ status();
   "KEEP LOOKING BEYOND THE HORIZON"
  ];
  const reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+ const lowPower=window.matchMedia&&window.matchMedia("(max-width: 700px)").matches;
  let phraseIndex=0,charIndex=0,typingTimer=null,rotateTimer=null,raf=0,ctx=canvas.getContext("2d");
- let width=0,height=0,dpr=1,particles=[],targets=[],lastBuild=0;
+ let width=0,height=0,dpr=1,particles=[],targets=[],lastBuild=0,lastFrame=0;
  const rand=(a,b)=>Math.random()*(b-a)+a;
  function typePhrase(){
   if(reduce)return;
@@ -511,7 +514,9 @@ status();
   lastBuild=performance.now();
  }
  function draw(t){
-  if(!ctx||document.hidden)return;
+  if(!ctx||document.hidden||lowPower)return;
+  if(t-lastFrame<33){raf=requestAnimationFrame(draw);return;}
+  lastFrame=t;
   ctx.clearRect(0,0,width,height);
   const assembling=((t-lastBuild)%12000)<8500;
   for(const p of particles){
@@ -539,7 +544,7 @@ status();
  window.addEventListener("resize",resize,{passive:true});
  resize();
  if(reduce){line.textContent=phrases[0];line.dataset.text=phrases[0];}
- else start();
+ else {if(lowPower)canvas.style.display="none";start();}
 })();
 </script>
 <script>
