@@ -1,4 +1,44 @@
-const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
+const SECURITY_HEADERS={
+ "X-Content-Type-Options":"nosniff",
+ "X-Frame-Options":"DENY",
+ "Referrer-Policy":"strict-origin-when-cross-origin",
+ "Permissions-Policy":"camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+ "Cross-Origin-Opener-Policy":"same-origin",
+ "Strict-Transport-Security":"max-age=31536000; includeSubDomains",
+ "Content-Security-Policy":"default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://www.instagram.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self' data: https:; connect-src 'self'; frame-src 'self' https://www.instagram.com https://open.spotify.com"
+};
+const rateBuckets=new Map();
+function withSecurity(response){
+ const headers=new Headers(response.headers);
+ for(const [k,v] of Object.entries(SECURITY_HEADERS))headers.set(k,v);
+ return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
+}
+const json=(data,status=200)=>withSecurity(new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","pragma":"no-cache"}}));
+function rateLimit(request,path){
+ const ip=request.headers.get("CF-Connecting-IP")||"unknown";
+ const now=Date.now(),windowMs=60_000;
+ for(const [key,b] of rateBuckets){if(now-b.start>windowMs)rateBuckets.delete(key);}
+ const expensive=/\/(profile|stories|highlights?|media|comments|likers|trending|search)/.test(path);
+ const limit=expensive?12:60,key=ip+"|"+(expensive?"expensive":"general");
+ let bucket=rateBuckets.get(key);
+ if(!bucket||now-bucket.start>windowMs){bucket={start:now,count:0};rateBuckets.set(key,bucket);}
+ bucket.count++;
+ return bucket.count<=limit;
+}
+function validMedia(value){
+ const raw=String(value||"").trim();
+ if(!raw||raw.length>500)throw new Error("请输入有效的 Instagram 帖子或 Reels 链接。");
+ let u;try{u=new URL(raw)}catch{throw new Error("请使用完整的 Instagram 官方链接。");}
+ if(u.protocol!=="https:"||!/(^|\\.)instagram\\.com$/i.test(u.hostname)||u.username||u.password)throw new Error("只支持 HTTPS Instagram 官方链接。");
+ if(!/^\\/(p|reel|tv)\\/[A-Za-z0-9_-]+\\/?$/.test(u.pathname))throw new Error("请使用 Instagram 帖子或 Reels 链接。");
+ return u.origin+u.pathname;
+}
+function safeCursor(value){
+ if(!value)return null;
+ const v=String(value).trim();
+ if(v.length>500||/[<>\\r\\n]/.test(v))throw new Error("分页标记无效，请重新加载列表。");
+ return v;
+}
 function cleanProfile(value){
  let raw=String(value||"").trim();
  if(/^https?:\/\//i.test(raw)){
@@ -40,10 +80,17 @@ export default {
  async fetch(request,env){
   const url=new URL(request.url);
   try{
+   if(url.pathname.startsWith("/api/")){
+    if(request.method!=="GET"&&request.method!=="HEAD")return json({error:"Method not allowed"},405);
+    const origin=request.headers.get("Origin");
+    if(origin&&origin!==url.origin)return json({error:"Cross-origin request blocked"},403);
+    if(request.headers.get("Sec-Fetch-Site")==="cross-site")return json({error:"Cross-site request blocked"},403);
+    if(!rateLimit(request,url.pathname))return withSecurity(new Response(JSON.stringify({error:"请求过于频繁，请一分钟后重试。"}),{status:429,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","retry-after":"60"}}));
+   }
    if(url.pathname==="/spotify/callback"){
     const target=new URL("/spotify-player.html",url);
     target.search=url.search;
-    return Response.redirect(target.toString(),302);
+    return withSecurity(Response.redirect(target.toString(),302));
    }
    if(url.pathname==="/api/health") return json({ok:true,service:"instagram-stories-viewer",provider:"Social Fetch",apiKeyConfigured:!!env.SOCIALFETCH_API_KEY});
    if(url.pathname==="/api/status") { const configured=!!env.SOCIALFETCH_API_KEY; return json({connected:configured,provider:"Social Fetch",apiKeyConfigured:configured,connectionState:configured?"configured":"missing_key",requiresMetaLogin:false}); }
@@ -69,7 +116,7 @@ export default {
     const hashtag=String(url.searchParams.get("hashtag")||"").trim().replace(/^#/,"");
     if(!/^[\p{L}\p{N}_.]+$/u.test(hashtag)||hashtag.length>100) throw new Error("话题标签格式无效。");
     const tab=["top","recent","reels"].includes(url.searchParams.get("tab"))?url.searchParams.get("tab"):"top";
-    const cursor=url.searchParams.get("cursor");
+    const cursor=safeCursor(url.searchParams.get("cursor"));
     const qs=new URLSearchParams({tab});if(cursor)qs.set("cursor",cursor);
     const result=await social("/v2/instagram/hashtags/"+encodeURIComponent(hashtag)+"/media?"+qs.toString(),env);
     const d=result.data||{};
@@ -148,7 +195,7 @@ export default {
     return json({username:profile,lookupStatus:d.lookupStatus||"unknown",media:normalize(d.media),page:d.page||null,creditsCharged:result.meta?.creditsCharged??null});
    }
    if(url.pathname.startsWith("/api/")) return json({error:"Not found"},404);
-   return env.ASSETS?env.ASSETS.fetch(request):new Response("Static assets binding missing",{status:500});
-  }catch(e){const status=Number.isInteger(e.status)?e.status:400;return url.pathname.startsWith("/api/")?json({error:e.message},status):new Response("服务暂时不可用",{status:503});}
+   return env.ASSETS?withSecurity(await env.ASSETS.fetch(request)):withSecurity(new Response("Static assets binding missing",{status:500}));
+  }catch(e){const status=Number.isInteger(e.status)?e.status:400;return url.pathname.startsWith("/api/")?json({error:e.message||"请求失败"},status):withSecurity(new Response("服务暂时不可用",{status:503}));}
  }
 };
