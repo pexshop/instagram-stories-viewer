@@ -48,7 +48,7 @@ async function rateLimit(request,path,env){
  if(!env.RATE_LIMITER)return {allowed:false,unavailable:true};
  const ip=request.headers.get("CF-Connecting-IP")||"unknown";
  const expensive=/\/(profile|stories|highlights?|media|comments|likers|trending|search)/.test(path);
- const limit=expensive?30:120;
+ const limit=expensive?20:90;
  try{
   const id=env.RATE_LIMITER.idFromName(ip+"|"+(expensive?"expensive":"general"));
   const stub=env.RATE_LIMITER.get(id);
