@@ -181,7 +181,7 @@ $("search").addEventListener("click",()=>searchTracks().catch(e=>say(e.message,t
 $("query").addEventListener("keydown",e=>{if(e.key==="Enter")searchTracks().catch(err=>say(err.message,true));});
 (async function boot(){
  try{
-  if(location.pathname==="/spotify/callback"){const exchanged=await exchangeCode();if(!exchanged)throw new Error("Spotify 回调缺少授权码。");}
+  if(new URLSearchParams(location.search).has("code")||new URLSearchParams(location.search).has("error")){const exchanged=await exchangeCode();if(!exchanged)throw new Error("Spotify 回调缺少授权码。");}
   token=sessionStorage.getItem("spotify_access_token");refreshToken=sessionStorage.getItem("spotify_refresh_token");expiresAt=Number(sessionStorage.getItem("spotify_expires_at")||0);
   if(token){$("playerControls").classList.remove("hidden");$("connect").classList.add("hidden");loadSdk();say("正在恢复 Spotify 连接…");}
   else say("尚未连接 Spotify。点击上方按钮授权。");
