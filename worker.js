@@ -144,7 +144,8 @@ export default {
     if(origin&&origin!==url.origin)return json({error:"Cross-origin request blocked"},403);
     if(request.headers.get("Sec-Fetch-Site")==="cross-site")return json({error:"Cross-site request blocked"},403);
     const rate=await rateLimit(request,url.pathname,env);
-    if(rate.unavailable)return json({error:"安全限流服务暂不可用，请稍后重试。"},503);\n    if(!rate.allowed)return withSecurity(new Response(JSON.stringify({error:"请求过于频繁，请一分钟后重试。"}),{status:429,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","retry-after":"60"}}));
+    if(rate.unavailable)return json({error:"安全限流服务暂不可用，请稍后重试。"},503);
+    if(!rate.allowed)return withSecurity(new Response(JSON.stringify({error:"请求过于频繁，请一分钟后重试。"}),{status:429,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","retry-after":"60"}}));
    }
    if(url.pathname==="/spotify/callback"){
     const target=new URL("/spotify-player.html",url);
