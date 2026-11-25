@@ -147,14 +147,7 @@ export default {
     return json({lookupStatus:d.lookupStatus||"unknown",accounts:d.accounts||[],sampled:!!d.sampled,creditsCharged:result.meta?.creditsCharged??null});
    }
    if(url.pathname==="/api/media/music"){
-    const media=String(url.searchParams.get("media")||"").trim();
-    if(!media||media.length>500) throw new Error("请粘贴 Instagram 帖子或 Reels 链接。");
-    if(/^https?:\/\//i.test(media)){
-     let parsed;try{parsed=new URL(media)}catch{throw new Error("Instagram 链接无效。")}
-     if(!/(^|\.)instagram\.com$/i.test(parsed.hostname)) throw new Error("只支持 Instagram 官方帖子或 Reels 链接。");
-     if(/\/share\//i.test(parsed.pathname)) throw new Error("分享短链接暂不支持，请先在 Instagram 打开分享链接，再复制最终帖子或 Reels 地址。");
-     if(!/\/(p|reel|tv)\//i.test(parsed.pathname)) throw new Error("请使用 Instagram 帖子或 Reels 链接。");
-    }
+    const media=validMedia(url.searchParams.get("media"));
     const result=await social("/v2/instagram/media/"+encodeURIComponent(media),env);
     const d=result.data||{},m=d.media||{};
     return json({lookupStatus:d.lookupStatus||"unknown",audio:m.audio||null,post:m?{id:m.id||null,url:m.url||media,kind:m.kind||null,mediaType:m.mediaType||null,caption:m.caption||null,owner:m.owner||null}:null,creditsCharged:result.meta?.creditsCharged??null,stale:!!result.meta?.stale});
