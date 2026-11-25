@@ -11,6 +11,37 @@ const SECURITY_HEADERS={
  "Origin-Agent-Cluster":"?1",
  "Strict-Transport-Security":"max-age=31536000; includeSubDomains"
 };
+function nonceValue(){
+ const bytes=new Uint8Array(18);crypto.getRandomValues(bytes);
+ return btoa(String.fromCharCode(...bytes));
+}
+function withSecurity(response,nonce=null){
+ const headers=new Headers(response.headers);
+ for(const [k,v] of Object.entries(SECURITY_HEADERS))headers.set(k,v);
+ const scriptPolicy=nonce
+  ? `script-src 'self' 'nonce-${nonce}' https://www.instagram.com`
+  : "script-src 'self' https://www.instagram.com";
+ const stylePolicy=nonce
+  ? `style-src 'self' 'nonce-${nonce}'; style-src-attr 'unsafe-inline'`
+  : "style-src 'self'; style-src-attr 'unsafe-inline'";
+ headers.set("Content-Security-Policy",`default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; ${scriptPolicy}; ${stylePolicy}; img-src 'self' data: blob: https://*.cdninstagram.com https://*.fbcdn.net https://assets.science.nasa.gov; media-src 'self' blob: https://*.cdninstagram.com https://*.fbcdn.net; font-src 'self' data:; connect-src 'self'; frame-src https://www.instagram.com https://open.spotify.com; upgrade-insecure-requests`);
+ return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
+}
+async function secureAssetResponse(response){
+ if(!response.ok)return withSecurity(response);
+ const type=response.headers.get("content-type")||"";
+ if(!type.toLowerCase().includes("text/html"))return withSecurity(response);
+ const nonce=nonceValue();
+ const html=await response.text();
+ const secured=html.replace(/<(script|style)\\b/gi,match=>match+` nonce="${nonce}"`);
+ const headers=new Headers(response.headers);
+ headers.set("Cache-Control","no-store, max-age=0");
+ headers.set("Pragma","no-cache");
+ headers.delete("ETag");
+ headers.delete("Last-Modified");
+ return withSecurity(new Response(secured,{status:response.status,statusText:response.statusText,headers}),nonce);
+}
+const json=(data,status=200)=>withSecurity(new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","pragma":"no-cache"}}));
 async function rateLimit(request,path,env){
  if(!env.RATE_LIMITER)return {allowed:false,unavailable:true};
  const ip=request.headers.get("CF-Connecting-IP")||"unknown";
