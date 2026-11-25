@@ -233,7 +233,7 @@ html{scroll-behavior:smooth;scroll-padding-top:116px}
  <div class="media-modal-foot"><span id="mediaModalCount"></span><span>点击关闭返回主页</span></div></div></div>
 <script>
 const $=id=>document.getElementById(id);let accounts=[],stories=[],followersCursor=null,followersProfile="",followersSampled=false,index=0,tick=null,paused=false,startAt=0,duration=7000,elapsedBeforePause=0,activeUrl=null,currentProfile="";
-async function api(path,options={}){const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),20000);try{const r=await fetch(path,{...options,signal:controller.signal,credentials:"same-origin",headers:{"content-type":"application/json",...(options.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||("请求失败（HTTP "+r.status+"）"));return d}catch(e){if(e.name==="AbortError")throw Error("请求超时（20 秒）。请检查网络或第三方 API 服务状态。");throw e}finally{clearTimeout(timeout)}}
+async function api(path,options={}){const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),18000);try{const r=await fetch(path,{...options,signal:controller.signal,credentials:"same-origin",headers:{"content-type":"application/json",...(options.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||("请求失败（HTTP "+r.status+"）"));return d}catch(e){if(e.name==="AbortError")throw Error("请求超过 18 秒仍未完成，已停止等待。请检查网络或第三方 API 状态。");throw e}finally{clearTimeout(timeout)}}
 function msg(t){$("message").textContent=t||""}
 function profileValue(){return $("profile").value.trim().replace(/^@/,"")}
 const PROFILE_HISTORY_KEY="ig_profile_history_v1";
@@ -300,8 +300,8 @@ async function loadFollowerFeed(reset=false){
  statusBox.textContent="正在读取 "+batch.length+" 个账号的公开帖子…";
  try{
   const results=[];
-  for(let i=0;i<batch.length;i+=3){
-   const chunk=batch.slice(i,i+3);
+  for(let i=0;i<batch.length;i+=4){
+   const chunk=batch.slice(i,i+4);
    const part=await Promise.all(chunk.map(async handle=>{
     try{const d=await api("/api/media?username="+encodeURIComponent(handle)+"&tab=posts");return {handle,items:d.media||[],credits:d.creditsCharged||0,error:null}}
     catch(e){return {handle,items:[],credits:0,error:e.message}}
