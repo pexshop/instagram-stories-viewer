@@ -1,15 +1,12 @@
 name = "instagram-stories-viewer"
 main = "worker.js"
 compatibility_date = "2026-11-25"
+workers_dev = true
 
 [assets]
 directory = "./public"
 binding = "ASSETS"
 run_worker_first = true
-
-[[kv_namespaces]]
-binding = "SESSION_KV"
-id = "REPLACE_WITH_YOUR_KV_NAMESPACE_ID"
 
 [vars]
 APP_ORIGIN = "https://YOUR-WORKER.workers.dev"
