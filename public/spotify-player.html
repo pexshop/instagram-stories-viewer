@@ -93,7 +93,9 @@ $("playlistLinks").addEventListener("input",savePlaylist);
 $("playlistLinks").addEventListener("change",savePlaylist);
 window.addEventListener("pagehide",savePlaylist);
 try{const saved=JSON.parse(localStorage.getItem(STORE_KEY)||"null");const savedList=localStorage.getItem(LIST_KEY);const listValue=savedList!==null?savedList:(saved&&saved.playlist)||"";if(listValue)$("playlistLinks").value=listValue;const count=listValue.split(/\\r?\\n/).map(x=>x.trim()).filter(Boolean).length;if(saved&&saved.link){$("spotifyLink").value=saved.link;load(saved.link,true);say("已恢复上次歌曲列表（"+count+" 首）及上次歌曲。可直接随机选择。");}else if(count){say("已恢复上次歌曲列表（"+count+" 首）。可直接随机选择。");}}catch(e){}
-window.addEventListener("pageshow",()=>{try{const saved=JSON.parse(localStorage.getItem(STORE_KEY)||"null");if(saved&&saved.link&&!$("embed").querySelector("iframe")){ $("spotifyLink").value=saved.link;load(saved.link,true);say("已自动恢复上次歌曲并尝试播放；若没有声音，请点击播放器中的播放按钮。");}}catch(e){}});
+function restoreFloatingPlayer(){try{const saved=JSON.parse(localStorage.getItem(STORE_KEY)||"null");const frame=$("embed").querySelector("iframe");if(frame){$("playerDock").hidden=false;$("embed").hidden=false;$("playerDock").classList.toggle("minimized",localStorage.getItem(DOCK_KEY)==="1");$("dockToggle").textContent=$("playerDock").classList.contains("minimized")?"展开":"缩小";return;}if(saved&&saved.link){$("spotifyLink").value=saved.link;load(saved.link,true);say("已自动打开悬浮播放器并恢复上次歌曲。若没有声音，请点击播放器中的播放按钮。");}}catch(e){}} 
+window.addEventListener("pageshow",restoreFloatingPlayer);
+document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")restoreFloatingPlayer();});
 $("search").addEventListener("click",()=>{
  const q=$("spotifyLink").value.trim();
  const target="https://open.spotify.com/search/"+encodeURIComponent(q||"Justin%20Bieber");
