@@ -87,18 +87,7 @@ function cleanProfile(value){
  if(!/^[A-Za-z0-9._]{1,30}$/.test(raw))throw badRequest("请输入有效的 Instagram 用户名，或 instagram.com 用户主页链接。");
  return raw;
 }
-async function providerCreditState(env,action=null){
- if(!env.RATE_LIMITER)throw badRequest("安全限流服务暂不可用。");
- const id=env.RATE_LIMITER.idFromName("socialfetch-credit-guard");
- const stub=env.RATE_LIMITER.get(id);
- const response=await stub.fetch("https://rate-limiter.internal/credit-state"+(action?"/exhausted":""),{
-  method:action?"POST":"GET",
-  headers:{"content-type":"application/json"},
-  body:action?JSON.stringify({pauseMs:24*60*60*1000}):undefined
- });
- if(!response.ok)throw badRequest("第三方额度保护状态暂不可用。");
- return response.json();
-}
+
 function inscrapeMedia(x){
  const f=x?.firstMedia?.[0]||x?.carouselMedia?.[0]||{};
  const carousel=Array.isArray(x?.carouselMedia)?x.carouselMedia.map((c,i)=>({id:c.id||String(i),mediaType:c.videoUrl?"video":"image",videoUrl:c.videoUrl||null,imageUrl:c.url||null,thumbnailUrl:c.url||c.videoUrl||null,caption:x.caption||"",createdAt:x.post_timestamp||null,url:x.postLink||null})):undefined;
