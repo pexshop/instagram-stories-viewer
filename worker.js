@@ -8,12 +8,12 @@ async function graph(path, token, params={}) {
   const url = new URL(`https://graph.facebook.com/${VERSION}/${path.replace(/^\//,"")}`);
   for (const [k,v] of Object.entries(params)) url.searchParams.set(k,v);
   url.searchParams.set("access_token",token);
-  const r = await fetch(url);
-  const data = await r.json();
+  const r = await fetch(url); const data = await r.json();
   if(!r.ok || data.error) throw new Error(data.error?.message || "Meta API request failed");
   return data;
 }
 async function session(request, env){
+  if(!env.SESSION_KV) return null;
   const raw = request.headers.get("Cookie") || "";
   const id = raw.split(";").map(x=>x.trim()).find(x=>x.startsWith(COOKIE+"="))?.slice(COOKIE.length+1);
   if(!id) return null;
@@ -23,11 +23,11 @@ async function session(request, env){
 export default {
  async fetch(request, env){
   const url = new URL(request.url);
-  if(request.method==="OPTIONS") return new Response(null,{headers:{"access-control-allow-origin":base(request,env),"access-control-allow-credentials":"true","access-control-allow-methods":"GET,POST,OPTIONS","access-control-allow-headers":"content-type"}});
   try {
-   if(url.pathname==="/api/health") return json({ok:true,service:"instagram-stories-viewer"});
+   if(url.pathname==="/api/health") return json({ok:true,service:"instagram-stories-viewer",kvConfigured:!!env.SESSION_KV});
    if(url.pathname==="/auth/login"){
-    if(!env.META_APP_ID || !env.META_APP_SECRET || !env.SESSION_KV) return json({error:"请先配置 META_APP_ID、META_APP_SECRET 和 SESSION_KV。"},503);
+    if(!env.META_APP_ID || !env.META_APP_SECRET) return json({error:"请先配置 META_APP_ID 和 META_APP_SECRET Worker Secrets。"},503);
+    if(!env.SESSION_KV) return json({error:"还没有绑定 Cloudflare KV。请在 Worker Settings > Bindings 添加 KV namespace，变量名称必须是 SESSION_KV。"},503);
     const state=randomId();
     await env.SESSION_KV.put("state:"+state,"1",{expirationTtl:600});
     const redirect=env.META_REDIRECT_URI || base(request,env)+"/auth/callback";
@@ -40,6 +40,7 @@ export default {
     return Response.redirect(auth.toString(),302);
    }
    if(url.pathname==="/auth/callback"){
+    if(!env.SESSION_KV || !env.META_APP_ID || !env.META_APP_SECRET) return new Response("请先配置 Cloudflare KV 和 Meta App Secrets。",{status:503});
     const code=url.searchParams.get("code"), state=url.searchParams.get("state");
     if(!code || !state || !(await env.SESSION_KV.get("state:"+state))) return new Response("OAuth state 无效或已过期。请返回网站重新连接。",{status:400});
     await env.SESSION_KV.delete("state:"+state);
@@ -57,11 +58,11 @@ export default {
     if(!accounts.length) throw new Error("没有找到已关联 Facebook Page 的 Instagram 专业账号。请将 Instagram 商业/创作者账号连接到 Facebook Page，并确认应用权限。");
     const sid=randomId();
     await env.SESSION_KV.put("session:"+sid,JSON.stringify({accounts,createdAt:Date.now()}),{expirationTtl:60*60*24*30});
-    return new Response(null,{status:302,headers:{location:base(request,env)+"/?connected=1", "set-cookie":cookie(sid)}});
+    return new Response(null,{status:302,headers:{location:base(request,env)+"/?connected=1","set-cookie":cookie(sid)}});
    }
    if(url.pathname.startsWith("/api/")){
     const sess=await session(request,env);
-    if(url.pathname==="/api/status") return json({connected:!!sess,accounts:sess?.accounts?.map(({id,username,pageName})=>({id,username,pageName}))||[]});
+    if(url.pathname==="/api/status") return json({connected:!!sess,kvConfigured:!!env.SESSION_KV,accounts:sess?.accounts?.map(({id,username,pageName})=>({id,username,pageName}))||[]});
     if(url.pathname==="/api/logout" && request.method==="POST"){
       if(sess) await env.SESSION_KV.delete("session:"+sess.id);
       return new Response(JSON.stringify({ok:true}),{headers:{"content-type":"application/json","set-cookie":cookie("",0),"cache-control":"no-store"}});
