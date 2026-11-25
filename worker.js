@@ -40,7 +40,7 @@ export default {
  async fetch(request,env){
   const url=new URL(request.url);
   try{
-   if(url.pathname==="/spotify-player"||url.pathname==="/spotify/callback"){
+   if(url.pathname==="/spotify/callback"){
     if(!env.ASSETS) return new Response("Static assets binding missing",{status:500});
     const assetUrl=new URL("/spotify-player.html",url);assetUrl.search=url.search;
     return env.ASSETS.fetch(new Request(assetUrl.toString(),request));
