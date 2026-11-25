@@ -38,6 +38,12 @@ If using the Cloudflare dashboard Git integration for **Workers Builds**, select
 
 The code requests `instagram_basic`, `pages_show_list`, and `pages_read_engagement`. Meta app review / business verification may be required for accounts outside app roles and for production use. Confirm the current requirements in Meta App Dashboard.
 
+## Official Instagram embeds on your own website
+
+The public website now includes an **Instagram 内容嵌入** section. Paste a public Instagram post, Reel, or video URL to render the official Instagram embed using `https://www.instagram.com/embed.js`. A profile URL is presented as a safe outbound profile link; Instagram does not provide a reliable full-profile embed widget for arbitrary accounts. Private, removed, age/region-restricted, or non-embeddable content may not render. The browser loads the embed directly from Instagram; this feature does not scrape content or ask for Instagram credentials.
+
+The embed feature does not require Meta OAuth or Worker secrets. The Stories viewer still requires the separate Meta OAuth + Cloudflare KV setup described above. Instagram may block third-party cookies or embeds in some browsers; users can open the original Instagram link instead.
+
 ## Features
 
 - Meta OAuth login; no Instagram password is collected by this site.
