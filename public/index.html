@@ -482,7 +482,7 @@ async function lookupMediaList(kind){
   });const note=document.createElement("p");note.className="profile-note";note.textContent=(kind==="comments"?"评论":"点赞者")+" · "+items.length+" 条"+(d.sampled?" · 样本数据":"")+" · 本次 "+(d.creditsCharged??"?")+" credits";box.append(note);
  }catch(e){box.textContent=e.message}
 }
-$("loadProfile").onclick=loadProfile;$("searchProfiles").onclick=searchProfiles;$("loadTrendingReels").onclick=loadTrendingReels;$("searchHashtags").onclick=searchHashtags;$("hashtagQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchHashtags()});$("profileSearchQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchProfiles()});$("loadComments").onclick=()=>lookupMediaList("comments");$("loadLikers").onclick=()=>lookupMediaList("likers");
+$("detectPostMusic").onclick=detectPostMusic;$("loadProfile").onclick=loadProfile;$("searchProfiles").onclick=searchProfiles;$("loadTrendingReels").onclick=loadTrendingReels;$("searchHashtags").onclick=searchHashtags;$("hashtagQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchHashtags()});$("profileSearchQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchProfiles()});$("loadComments").onclick=()=>lookupMediaList("comments");$("loadLikers").onclick=()=>lookupMediaList("likers");
 
 
 
