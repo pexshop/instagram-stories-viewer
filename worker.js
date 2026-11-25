@@ -320,7 +320,7 @@ export default {
     const media=validMedia(url.searchParams.get("media"));
     const result=await social("/v2/instagram/media/"+encodeURIComponent(media),env);
     const d=result.data||{},m=d.media||{};
-    return json({lookupStatus:d.lookupStatus||"unknown",audio:m.audio||null,post:m?{id:m.id||null,url:m.url||media,kind:m.kind||null,mediaType:m.mediaType||null,caption:m.caption||null,owner:m.owner||null}:null,creditsCharged:result.meta?.creditsCharged??null,stale:!!result.meta?.stale});
+    return json({lookupStatus:d.lookupStatus||"unknown",audio:d.audio||m.audio||null,post:m?{id:m.id||null,url:m.url||media,kind:m.kind||null,mediaType:m.mediaType||null,caption:m.caption||null,owner:m.owner||null}:null,creditsCharged:result.meta?.creditsCharged??null,stale:!!result.meta?.stale});
    }
    if(url.pathname==="/api/media/detail"){
     const media=validMedia(url.searchParams.get("media"));
