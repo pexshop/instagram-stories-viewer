@@ -10,7 +10,7 @@ async function social(path,env){
  const data=await response.json().catch(()=>({}));
  if(!response.ok) {
   const msg=data.error?.message||data.error?.detail||data.message||("第三方 API 请求失败（HTTP "+response.status+"）");
-  throw new Error(response.status===401?"Social Fetch API Key 无效或已撤销。":response.status===402?"Social Fetch 额度不足或需要充值。":response.status===429?"请求过于频繁，请稍后重试。":msg);
+  const error=new Error(response.status===401?"Social Fetch API Key 无效或已撤销。":response.status===402?"Social Fetch 额度不足或需要充值。":response.status===429?"请求过于频繁，请稍后重试。":msg); error.status=response.status>=500?502:response.status; throw error;
  }
  return data;
 }
@@ -129,6 +129,6 @@ export default {
    }
    if(url.pathname.startsWith("/api/")) return json({error:"Not found"},404);
    return env.ASSETS?env.ASSETS.fetch(request):new Response("Static assets binding missing",{status:500});
-  }catch(e){return url.pathname.startsWith("/api/")?json({error:e.message},400):new Response("服务暂时不可用",{status:503});}
+  }catch(e){const status=Number.isInteger(e.status)?e.status:400;return url.pathname.startsWith("/api/")?json({error:e.message},status):new Response("服务暂时不可用",{status:503});}
  }
 };
