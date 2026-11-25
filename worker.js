@@ -1,7 +1,7 @@
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
 function cleanProfile(value){
  const raw=String(value||"").trim().replace(/^@/,"");
- if(!raw||raw.length>100||/[\\s/?#]/.test(raw)) throw new Error("请输入有效的 Instagram 用户名，不要包含 @ 以外的特殊字符。");
+ if(!raw||raw.length>100||/[\s/?#]/.test(raw)) throw new Error("请输入有效的 Instagram 用户名，不要包含 @ 以外的特殊字符。");
  return raw;
 }
 async function social(path,env){
@@ -46,7 +46,7 @@ export default {
    }
    if(url.pathname==="/api/highlight"){
     const id=String(url.searchParams.get("id")||"").trim();
-    if(!/^\\d{5,30}$/.test(id)) throw new Error("精选快拍 ID 无效。");
+    if(!/^\d{5,30}$/.test(id)) throw new Error("精选快拍 ID 无效。");
     const result=await social("/v2/instagram/highlights/"+encodeURIComponent(id),env);
     const d=result.data||{};
     return json({highlight:d.highlight||null,stories:normalize(d.media),lookupStatus:d.lookupStatus||"unknown",creditsCharged:result.meta?.creditsCharged??null});
