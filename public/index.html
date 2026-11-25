@@ -1,7 +1,7 @@
 <!doctype html>
 <html lang="zh-CN"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<meta name="theme-color" content="#08080b"><title>Stories Viewer</title>
+<meta name="theme-color" content="#08080b"><title>Instagram 浏览器</title>
 <style>
 :root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#08080b;color:#f8f8fb}*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at 50% -20%,#34213e 0,#111116 46%,#08080b 100%);min-height:100vh}button,select{font:inherit}header{height:62px;display:flex;align-items:center;justify-content:space-between;padding:0 20px;border-bottom:1px solid #ffffff18;background:#09090de8;backdrop-filter:blur(16px);position:sticky;top:0;z-index:10}.logo{font-weight:800;font-size:20px;letter-spacing:-.7px}.logo span{background:linear-gradient(90deg,#ffd16d,#ff4f9b,#9c6bff);color:transparent;background-clip:text}.status{font-size:12px;color:#aaa}main{max-width:1100px;margin:auto;padding:28px 18px 60px}.hero h1{font-size:clamp(28px,5vw,42px);margin:8px 0}.sub{color:#a6a6b1;font-size:14px;line-height:1.65}.notice{border:1px solid #a879ff55;background:#8d55ff12;border-radius:14px;padding:14px 16px;margin:20px 0;color:#ded9e8;font-size:13px;line-height:1.65}.layout{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:22px;align-items:start}.viewer{height:min(76vh,760px);min-height:520px;border:1px solid #ffffff1c;border-radius:22px;background:#17171c;position:relative;overflow:hidden;display:grid;place-items:center}.empty{text-align:center;color:#aaa;padding:25px}.empty .symbol{font-size:46px;margin-bottom:12px}.empty b{display:block;color:#fff;margin-bottom:8px}.stage{position:absolute;inset:0;display:none;background:#050507}.stage img,.stage video{height:100%;width:100%;object-fit:contain;background:#050507}.bars{position:absolute;top:12px;left:12px;right:12px;display:flex;gap:4px;z-index:3}.bar{height:3px;border-radius:4px;background:#ffffff66;overflow:hidden;flex:1}.bar i{height:100%;width:0;display:block;background:#fff}.who{position:absolute;top:24px;left:16px;z-index:3;display:flex;gap:10px;align-items:center;text-shadow:0 1px 8px #000}.avatar{height:36px;width:36px;border-radius:50%;display:grid;place-items:center;background:linear-gradient(135deg,#ffc56e,#ec4899,#8056ff);font-weight:800}.who strong{font-size:14px}.who small{display:block;color:#ddd;font-size:11px;margin-top:3px}.nav{position:absolute;top:80px;bottom:70px;width:35%;border:0;background:transparent;z-index:2}.nav.prev{left:0}.nav.next{right:0}.controls{position:absolute;bottom:14px;left:14px;right:14px;z-index:4;display:flex;justify-content:space-between}.glass,.btn{border:1px solid #ffffff35;border-radius:999px;background:#ffffff20;color:#fff;padding:9px 14px;backdrop-filter:blur(12px);cursor:pointer}.panel{background:#15151a;border:1px solid #ffffff1c;border-radius:18px;padding:18px}.panel h2{font-size:17px;margin:0 0 8px}.panel p{color:#a5a5af;font-size:13px;line-height:1.6;margin:0 0 16px}.primary{width:100%;border:0;border-radius:11px;background:linear-gradient(100deg,#9956f5,#ed4895);color:#fff;font-weight:750;padding:13px;cursor:pointer}.secondary{width:100%;border:1px solid #ffffff28;border-radius:11px;background:#ffffff0c;color:#eee;padding:11px;cursor:pointer;margin-top:9px}.field{display:block;color:#bbb;font-size:12px;margin:15px 0 7px}select{width:100%;background:#09090d;border:1px solid #ffffff26;color:#fff;padding:12px;border-radius:10px}.row{display:flex;gap:8px}.row>*{flex:1}.divider{height:1px;background:#ffffff16;margin:17px 0}.small{font-size:11px!important;color:#888!important;margin-top:12px!important}.hidden{display:none!important}.err{font-size:12px;color:#ff9baf;line-height:1.5;margin-top:10px}.account{display:flex;gap:10px;align-items:center;margin-top:12px;color:#ccc;font-size:13px}.dot{height:8px;width:8px;border-radius:50%;background:#50d49a}
 @media(max-width:760px){main{padding:18px 12px 40px}.layout{grid-template-columns:1fr}.viewer{height:70svh;min-height:440px;border-radius:18px}.panel{order:2}header{padding:0 14px}}
@@ -9,25 +9,72 @@
 .embed-card{margin-top:22px;background:#15151a;border:1px solid #ffffff1c;border-radius:18px;padding:18px}.embed-card h2{font-size:18px;margin:0 0 8px}.embed-card p{font-size:13px;color:#aaa;line-height:1.6}.embed-form{display:flex;gap:8px;flex-wrap:wrap}.embed-form input{flex:1;min-width:210px;background:#09090d;border:1px solid #ffffff28;border-radius:10px;padding:12px;color:#fff}.embed-output{margin-top:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px;align-items:start}.embed-item{background:#fff;border-radius:12px;min-width:0;overflow:hidden}.embed-item blockquote{margin:0!important;max-width:100%!important}.profile-link{display:block;color:#fff;text-decoration:none;background:#24212b;border:1px solid #ffffff20;border-radius:12px;padding:16px;overflow-wrap:anywhere}.profile-link small{display:block;color:#aaa;margin-top:6px}@media(max-width:600px){.embed-card{padding:14px}.embed-form{display:grid}.embed-form button{width:100%}}
 
 .profile-view{margin-top:22px;background:#15151a;border:1px solid #ffffff1c;border-radius:18px;padding:18px}.profile-head{display:flex;gap:14px;align-items:flex-start}.profile-head img{width:76px;height:76px;object-fit:cover;border-radius:50%;background:#29242f}.profile-name{font-weight:800;font-size:18px}.profile-handle,.profile-meta{color:#aaa;font-size:12px;margin-top:5px}.profile-bio{white-space:pre-wrap;color:#ddd;font-size:13px;line-height:1.6;margin:14px 0}.profile-stats{display:flex;gap:18px;flex-wrap:wrap;color:#ddd;font-size:12px}.profile-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:16px}.profile-tile{aspect-ratio:1;border:0;padding:0;background:#24242a;overflow:hidden;position:relative;cursor:pointer}.profile-tile img{width:100%;height:100%;object-fit:cover}.profile-tile span{position:absolute;bottom:5px;right:5px;background:#0009;border-radius:5px;padding:3px 5px;font-size:10px}.profile-note{color:#999;font-size:12px;line-height:1.5;margin-top:12px}.followers-box{margin-top:18px;border-top:1px solid #ffffff18;padding-top:16px}.followers-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.followers-head h3{font-size:16px;margin:0}.followers-count{font-size:11px;color:#aaa}.followers-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin-top:12px}.follower-card{display:flex;gap:10px;align-items:center;background:#ffffff08;border:1px solid #ffffff14;border-radius:10px;padding:9px;min-width:0}.follower-card img{width:38px;height:38px;border-radius:50%;object-fit:cover;background:#333;flex:none}.follower-name{font-size:12px;font-weight:700;overflow-wrap:anywhere}.follower-handle{font-size:11px;color:#aaa;margin-top:3px;overflow-wrap:anywhere}.follower-verified{color:#8eb6ff}.followers-more{margin-top:12px}@media(max-width:600px){.profile-view{padding:14px}}
-.media-modal{position:fixed;inset:0;z-index:1000;background:#050507ed;display:none;align-items:center;justify-content:center;padding:14px;backdrop-filter:blur(12px)}.media-modal.open{display:flex}.media-modal-card{position:relative;width:min(100%,760px);height:min(88svh,900px);background:#111116;border:1px solid #ffffff25;border-radius:18px;overflow:hidden;display:flex;flex-direction:column}.media-modal-head{height:52px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 14px;color:#eee;border-bottom:1px solid #ffffff18}.media-modal-close,.media-modal-nav{border:1px solid #ffffff35;background:#25252dcc;color:white;border-radius:999px;padding:9px 13px}.media-modal-stage{min-height:0;flex:1;display:grid;place-items:center;background:#000;position:relative}.media-modal-stage img,.media-modal-stage video{width:100%;height:100%;object-fit:contain}.media-modal-foot{padding:10px 14px;color:#bbb;font-size:12px;display:flex;justify-content:space-between;align-items:center;gap:8px}.media-modal-nav{position:absolute;top:50%;transform:translateY(-50%);z-index:2}.media-modal-nav.prev{left:10px}.media-modal-nav.next{right:10px}@media(max-width:600px){.media-modal{padding:0}.media-modal-card{width:100%;height:100svh;border-radius:0;border:0}.media-modal-head{padding-top:env(safe-area-inset-top);height:calc(52px + env(safe-area-inset-top))}.media-modal-foot{padding-bottom:calc(10px + env(safe-area-inset-bottom))}}</style></head><body>
-<header><div class="logo">stories <span>viewer</span></div><div class="status" id="status">正在检查连接…</div></header>
-<main><section class="hero"><h1>Instagram 快拍浏览器</h1><div class="sub">公开账号 · 实时快拍 · 精选快拍 · 帖子与 Reels · iPhone 适配</div></section>
-<div class="notice">数据来源：Social Fetch 第三方公开数据 API。无需 Meta App Review 或 Instagram 登录。仅显示该服务能够读取的公开内容；不支持私密账号或绕过访问限制。API Key 只保存在 Cloudflare 服务端。</div>
+.media-modal{position:fixed;inset:0;z-index:1000;background:#050507ed;display:none;align-items:center;justify-content:center;padding:14px;backdrop-filter:blur(12px)}.media-modal.open{display:flex}.media-modal-card{position:relative;width:min(100%,760px);height:min(88svh,900px);background:#111116;border:1px solid #ffffff25;border-radius:18px;overflow:hidden;display:flex;flex-direction:column}.media-modal-head{height:52px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:0 14px;color:#eee;border-bottom:1px solid #ffffff18}.media-modal-close,.media-modal-nav{border:1px solid #ffffff35;background:#25252dcc;color:white;border-radius:999px;padding:9px 13px}.media-modal-stage{min-height:0;flex:1;display:grid;place-items:center;background:#000;position:relative}.media-modal-stage img,.media-modal-stage video{width:100%;height:100%;object-fit:contain}.media-modal-foot{padding:10px 14px;color:#bbb;font-size:12px;display:flex;justify-content:space-between;align-items:center;gap:8px}.media-modal-nav{position:absolute;top:50%;transform:translateY(-50%);z-index:2}.media-modal-nav.prev{left:10px}.media-modal-nav.next{right:10px}@media(max-width:600px){.media-modal{padding:0}.media-modal-card{width:100%;height:100svh;border-radius:0;border:0}.media-modal-head{padding-top:env(safe-area-inset-top);height:calc(52px + env(safe-area-inset-top))}.media-modal-foot{padding-bottom:calc(10px + env(safe-area-inset-bottom))}}
+/* Clean, simplified redesign */
+:root{color-scheme:light;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#f5f6f8;color:#17191d}
+*{box-sizing:border-box}
+body{margin:0;background:#f5f6f8;color:#17191d;min-height:100vh}
+header{height:58px;padding:0 max(18px,calc((100vw - 1080px)/2));background:#fff;border-bottom:1px solid #e8e9ed;backdrop-filter:none}
+.logo{font-size:19px;color:#17191d;letter-spacing:-.5px}.logo span{background:none;color:#6556d9}
+.status{color:#737782;font-size:12px}
+main{max-width:1080px;margin:auto;padding:26px 18px 56px}
+.hero{margin:4px 0 20px}.hero h1{font-size:clamp(25px,4vw,34px);letter-spacing:-.8px;color:#17191d;margin:0 0 7px}
+.sub{color:#666c77;font-size:14px;line-height:1.6}
+.notice{background:#f0efff;border:1px solid #e1defe;color:#4d477c;border-radius:12px;padding:12px 14px;margin:0 0 18px;font-size:12px;line-height:1.6}
+.layout{grid-template-columns:minmax(0,1.35fr) minmax(280px,.8fr);gap:16px}
+.viewer{height:min(72vh,700px);min-height:430px;background:#17181d;border:0;border-radius:16px;box-shadow:0 2px 10px #161a2410}
+.empty{color:#c4c7d0}.empty b{color:#fff;font-size:17px}.empty .symbol{font-size:40px}
+.panel,.profile-view,.embed-card{background:#fff;border:1px solid #e7e8ec;border-radius:15px;padding:20px;box-shadow:0 2px 8px #17191d08}
+.panel h2,.profile-view h2,.embed-card h2{font-size:17px;color:#191b20;letter-spacing:-.2px}
+.panel p,.profile-view>p,.embed-card p{color:#707580}
+.field{color:#505560;font-weight:600;font-size:12px}
+input:not([type=checkbox]),select,.embed-form input{background:#fff!important;color:#191b20!important;border:1px solid #dfe1e6!important;border-radius:9px!important;min-height:43px}
+input::placeholder{color:#9a9eaa}
+.primary{background:#6556d9;border-radius:9px;padding:12px 15px;font-weight:650;box-shadow:none}
+.secondary,.glass,.media-modal-close,.media-modal-nav{background:#f4f5f7;color:#353943;border:1px solid #e1e3e8;border-radius:9px;backdrop-filter:none}
+.secondary{margin-top:8px;padding:10px}
+.row{gap:7px}
+.divider{background:#eceef1;margin:16px 0}
+.small{color:#858a95!important;line-height:1.55}
+.err{color:#b4233b}
+.account{color:#555}
+.profile-view,.embed-card{margin-top:16px}
+.profile-view .profile-note{color:#777}
+.profile-head img{border:1px solid #e8e9ed}
+.profile-stats{color:#424650}
+.profile-tile{border-radius:7px}
+.follower-card{background:#fafbfc;border:1px solid #eceef1;border-radius:10px}
+.profile-grid{gap:7px}
+.followers-box{border-color:#eceef1}
+.embed-form input{min-width:0}
+.media-modal{background:#111827eF}
+.media-modal-card{border:0;border-radius:16px}
+.media-modal-head{color:#fff}
+.media-modal-close,.media-modal-nav{background:#ffffffea;color:#222;border:0}
+@media(max-width:760px){
+ main{padding:20px 13px 42px}.layout{grid-template-columns:1fr}.viewer{height:56svh;min-height:340px;max-height:560px}.panel{order:2}
+ header{padding:0 14px}.panel,.profile-view,.embed-card{padding:16px}
+ .row{flex-wrap:wrap}.row>*{min-width:0}
+}
+</style></head><body>
+<header><div class="logo">Instagram <span>浏览器</span></div><div class="status" id="status">正在检查连接…</div></header>
+<main><section class="hero"><h1>浏览公开 Instagram 内容</h1><div class="sub">输入用户名，查看快拍、帖子、Reels 和主页资料。</div></section>
+<div class="notice">数据来自第三方公开数据服务。无需 Instagram 登录；仅支持可公开访问的内容。API 密钥保存在服务器端，服务可能有使用额度或费用。</div>
 <div class="layout"><section class="viewer"><div class="empty" id="empty"><div class="symbol">◉</div><b>准备浏览快拍</b><div>输入公开 Instagram 用户名即可浏览可访问的快拍、精选、帖子和 Reels</div></div>
 <div class="stage" id="stage"><div class="bars" id="bars"></div><div class="who"><div class="avatar" id="avatar">IG</div><div><strong id="username">@instagram</strong><small id="storytime">快拍</small></div></div><img id="photo" alt="Instagram story" class="hidden"><video id="clip" playsinline class="hidden"></video><button class="nav prev" id="prev" aria-label="上一条"></button><button class="nav next" id="next" aria-label="下一条"></button><div class="controls"><button class="glass" id="pause">暂停</button><button class="glass" id="fullscreen">全屏</button><button class="glass" id="close">关闭</button></div></div></section>
-<aside class="panel"><h2>公开账号浏览</h2><p>无需 Meta 登录。输入公开 Instagram 用户名，读取可访问的实时快拍、精选快拍、帖子和 Reels。</p>
+<aside class="panel"><h2>1. 输入账号</h2><p>填写用户名后，选择要查看的内容。</p>
 <label class="field" for="profile">Instagram 用户名</label><input id="profile" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="例如 nasa" style="width:100%;background:#09090d;border:1px solid #ffffff26;color:#fff;padding:12px;border-radius:10px">
 <a id="profileUrl" class="small" href="#" target="_blank" rel="noopener noreferrer" style="display:none;color:#c6a5ff;text-decoration:underline;overflow-wrap:anywhere;margin-top:9px">打开 Instagram 主页</a>
-<div class="divider"></div><div class="row" style="align-items:center;justify-content:space-between"><h2 style="margin:0;font-size:16px">已保存的 Instagram 主页</h2><button class="secondary" id="clearProfileHistory" type="button">清空记录</button></div><div id="profileHistory" class="small" style="display:grid;gap:8px;margin-top:10px">暂无记录</div>
-<button class="primary" id="loadStories" style="margin-top:10px">加载实时快拍</button>
-<div class="row"><button class="secondary" id="loadHighlights">精选快拍</button><button class="secondary" id="loadPosts">帖子</button><button class="secondary" id="loadReels">Reels</button></div>
+<div class="divider"></div><div class="row" style="align-items:center;justify-content:space-between"><h2 style="margin:0;font-size:16px">最近浏览</h2><button class="secondary" id="clearProfileHistory" type="button">清空记录</button></div><div id="profileHistory" class="small" style="display:grid;gap:8px;margin-top:10px">暂无记录</div>
+<button class="primary" id="loadStories" style="margin-top:10px">查看快拍</button>
+<div class="row"><button class="secondary" id="loadHighlights">精选</button><button class="secondary" id="loadPosts">帖子</button><button class="secondary" id="loadReels">Reels</button></div>
 <label class="field" for="highlights">精选快拍合集</label><select id="highlights"><option value="">先加载精选快拍</option></select>
-<button class="secondary" id="playHighlight">播放所选精选</button>
+<button class="secondary" id="playHighlight">播放精选</button>
 <div class="divider"></div><h2>播放设置</h2><label class="field" for="duration">图片播放时长</label><select id="duration"><option value="5000">5 秒</option><option value="7000" selected>7 秒</option><option value="10000">10 秒</option><option value="15000">15 秒</option></select><label class="field"><input type="checkbox" id="loop" checked> 播放结束后循环</label>
 <div id="message" class="err"></div><p class="small">仅限公开可访问内容。私密账号、已过期快拍或受限制内容不会返回。第三方服务可能收费、限流，媒体链接也可能过期。</p></aside></div>
-<section class="profile-view"><h2 style="margin:0 0 8px;font-size:18px">公开 Instagram 主页</h2><p style="color:#aaa;font-size:13px;line-height:1.6">在本站查看公开主页资料与最近帖子，不需要跳转 Instagram。输入上方用户名后点击这里加载主页。</p><button class="primary" id="loadProfile" type="button">在本站打开主页</button><div id="profileResult"></div><div class="profile-note">仅显示第三方 API 能获取的公开资料。私密内容不可查看；图片和视频地址可能过期。点击帖子可在本站预览。</div></section>
+<section class="profile-view"><h2 style="margin:0 0 8px;font-size:18px">2. 主页资料</h2><p style="color:#707580;font-size:13px;line-height:1.6">查看账号简介、粉丝数据和最近发布的内容。</p><button class="primary" id="loadProfile" type="button">查看主页</button><div id="profileResult"></div><div class="profile-note">仅显示第三方 API 能获取的公开资料。私密内容不可查看；图片和视频地址可能过期。点击帖子可在本站预览。</div></section>
 <section class="profile-view">
-<h2 style="margin:0 0 8px;font-size:18px">发现公开账号</h2>
+<h2 style="margin:0 0 8px;font-size:18px">3. 搜索与发现</h2>
 <p style="color:#aaa;font-size:13px;line-height:1.6">按名称或关键词搜索 Instagram 公开账号。搜索结果受 Instagram 和第三方 API 可见范围限制。</p>
 <div class="embed-form"><input id="profileSearchQuery" placeholder="搜索账号或关键词，例如 travel"><button class="primary" id="searchProfiles" type="button" style="width:auto;min-width:110px">搜索账号</button></div>
 <div id="profileSearchResults" class="followers-list"></div>
@@ -37,7 +84,7 @@
 <div class="embed-form" style="margin-top:10px"><input id="hashtagQuery" placeholder="搜索话题，例如 photography"><button class="secondary" id="searchHashtags" type="button">搜索话题</button></div>
 <div id="hashtagResults" class="followers-list"></div>
 <div class="divider"></div>
-<h2 style="margin:0 0 8px;font-size:18px">帖子 / Reels 评论与点赞者</h2>
+<h2 style="margin:0 0 8px;font-size:18px">4. 评论与点赞者</h2>
 <p style="color:#aaa;font-size:13px;line-height:1.6">粘贴公开 Instagram 帖子或 Reels 链接，查看可获取的评论和点赞者名单。</p>
 <input id="mediaLookupUrl" placeholder="https://www.instagram.com/p/… 或 /reel/…" style="width:100%;background:#09090d;border:1px solid #ffffff26;color:#fff;padding:12px;border-radius:10px">
 <div class="row"><button class="secondary" id="loadComments" type="button">查看评论</button><button class="secondary" id="loadLikers" type="button">查看点赞者</button></div>
