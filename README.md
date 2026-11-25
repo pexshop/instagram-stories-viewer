@@ -1,75 +1,97 @@
 # Instagram Stories Viewer
 
-A mobile-friendly public Instagram viewer deployed on Cloudflare Workers. The backend uses a free-only InScrape adapter; API keys stay in Cloudflare Secrets and are never sent to the browser.
+A mobile-friendly Instagram public-content viewer. The Cloudflare Worker serves the frontend and API gateway. Instagram data is fetched by a separate Python service using the open-source **Instaloader** library.
 
-## Free-only provider
+## Architecture
 
-- Provider: InScrape REST API — https://inscrape.dev/docs/
-- Authentication: `x-api-key` header, stored as Cloudflare Secret `INSCRAPE_API_KEY` (key begins with `sk_`).
-- New accounts currently receive 100 free credits without a credit card. Credits are finite, not unlimited. See https://inscrape.dev/pricing/.
-- The Worker enforces a separate hard cap of 100 credits for this deployment. It reserves up to 2 credits before each upstream request, settles against the provider's reported `credits_charged`, and stops when the local cap is exhausted.
-- No paid provider fallback, automatic top-up, subscription, or purchase flow is implemented. The previous `SOCIALFETCH_API_KEY` is no longer used by the request adapter.
-- Supported public-data routes: profile, live Stories, Highlights, Highlight Stories, posts, Reels, account search, hashtag posts, comments, and single-post metadata.
-- Not supported by the currently verified free API: liker lists, trending Reels discovery, hashtag autocomplete. These routes fail closed without contacting a provider.
-- Private account content, DMs, notifications, saved posts, owner-only insights, and expired Stories are not available through public-data endpoints.
+```text
+iPhone / browser
+      |
+      v
+Cloudflare Worker (website + API gateway + rate limiting)
+      |
+      | HTTPS + private Bearer token
+      v
+Python Instaloader service
+      |
+      v
+Instagram public endpoints
+```
 
-## Configure the Cloudflare Worker
+Instaloader is free/open-source software and does not charge per API credit. This project has no paid scraping API fallback, no automatic credit purchase, and no paid-provider failover.
 
-1. Open Cloudflare Dashboard → **Workers & Pages** → **instagram-stories-viewer**.
-2. Open **Settings → Variables and Secrets**.
-3. Add an encrypted Secret:
-   - Name: `INSCRAPE_API_KEY`
-   - Value: your InScrape key (starts with `sk_`).
-4. Create the free account at https://inscrape.dev/ and copy the key from its dashboard. Do not paste it into GitHub, frontend files, or chat.
-5. Deploy the latest GitHub commit.
-6. Check `/api/status` for key configuration and the Worker-side remaining budget. This status check does not call InScrape or consume credits.
-7. Run one real public profile lookup to verify the key. The first successful query will consume the endpoint's free credits.
+## Important distinction: free software vs free hosting
 
-## API routes
+Instaloader itself is free. A Python process must still run somewhere. Cloudflare Workers cannot directly execute the Python Instaloader package. You can run the Python bridge on a computer or Raspberry Pi you control, or deploy it to a Python/Docker host. A free hosting tier may sleep, restart, impose limits, or change its terms; zero-cost always-on hosting is not guaranteed. Do not enable paid instances or add a payment method if strict zero spend is required.
 
-- `GET /api/health` — provider and key-configuration status.
-- `GET /api/status` — free-budget state; does not consume provider credits.
-- `GET /api/profile?username=nasa` — public profile and recent posts.
-- `GET /api/stories?username=nasa` — live public Stories.
-- `GET /api/highlights?username=nasa` — saved Highlight albums.
-- `GET /api/highlight?id=HIGHLIGHT_ID` — media inside one Highlight.
-- `GET /api/media?username=nasa&tab=posts` — public posts.
-- `GET /api/media?username=nasa&tab=reels` — public Reels.
-- `GET /api/search/profiles?query=...` — public account search.
-- `GET /api/hashtags/media?hashtag=...` — public posts for an exact hashtag.
-- `GET /api/comments?media=...` — comments on a public post.
-- `GET /api/media/detail?media=...` — public post metadata.
-- `GET /api/media/music?media=...` — music/audio metadata when exposed by Instagram.
+## Deploy the Python service
 
-## Budget and fail-closed behavior
+The backend source is in [instaloader-service](./instaloader-service).
 
-- The local Durable Object budget cap is 100 credits and is not reset by redeploying the Worker.
-- Each request reserves up to 2 credits before it reaches InScrape. If the budget guard is unavailable, the request is blocked.
-- Successful responses are settled using the provider's `credits_charged` value. Ambiguous timeouts conservatively reserve the maximum amount.
-- When the local budget is exhausted, the Worker stops. It never automatically switches to a paid provider or buys more credits.
-- This is a finite free allowance, not an unlimited free service. Do not add a payment method or purchase credits if you require a strict zero-spend setup. If you later purchase credits in the provider account, the Worker-side 100-credit cap still limits this deployment's use, but the provider account's own billing configuration remains under your control.
+1. Deploy the Dockerfile on a Python/Docker host, or run it on your own computer.
+2. Set `INSTALOADER_SERVICE_TOKEN` to a long random secret.
+3. Start the service on port 7860.
+4. Confirm its `/health` endpoint reports `ok: true`.
+5. Keep the service URL on HTTPS when it is reachable from Cloudflare.
 
-## Provider documentation
+Run locally:
 
-- API docs: https://inscrape.dev/docs/
-- Authentication and quickstart: https://inscrape.dev/docs/quickstart/
-- Endpoint catalogue: https://inscrape.dev/docs/instagram/
-- Credits and billing: https://inscrape.dev/docs/credits/
-- Pricing/free allowance: https://inscrape.dev/pricing/
+```bash
+cd instaloader-service
+python -m venv .venv
+. .venv/bin/activate
+pip install -r requirements.txt
+export INSTALOADER_SERVICE_TOKEN='replace-with-a-long-random-secret'
+uvicorn app:app --host 0.0.0.0 --port 7860
+```
 
-## Frontend features
+## Connect the Cloudflare Worker
 
-- Public username lookup.
-- Live Story viewer with autoplay, pause/resume, progress, previous/next, fullscreen, keyboard and touch navigation.
-- Highlight album list and playback.
-- Posts and Reels display/playback when public media URLs are returned.
-- Public account search and exact hashtag post browsing.
-- Public post comments and audio metadata when the provider returns them.
-- Responsive mobile layout.
+Open Cloudflare Dashboard → Workers & Pages → instagram-stories-viewer → Settings → Variables and Secrets.
 
-## Security and privacy
+Add:
+- Plain-text variable `INSTALOADER_SERVICE_URL`: your Python service HTTPS base URL.
+- Encrypted Secret `INSTALOADER_SERVICE_TOKEN`: exactly the same random token used by the Python service.
 
-- Store `INSCRAPE_API_KEY` only as a Cloudflare encrypted Secret.
-- Never put API keys in `public/index.html`, frontend JavaScript, GitHub commits, query strings, or screenshots.
-- The site does not ask for Instagram credentials or attempt to bypass private-account restrictions.
-- Use public data only and follow provider terms, Instagram terms, and applicable privacy/data-protection rules.
+The Worker checks the Python service's `/health` endpoint through `/api/status`. This check does not make an Instagram request.
+
+Remove old `INSCRAPE_API_KEY` and `SOCIALFETCH_API_KEY` secrets after confirming the Instaloader connection. They are no longer read by this Worker.
+
+## Optional Instagram login session
+
+Public profiles and posts may work without login. Stories, Highlights, hashtag browsing, comments, and liker lists can require an authenticated Instagram session. If you choose to enable those features:
+
+- Create a session file using Instaloader on a trusted device.
+- Configure `INSTALOADER_LOGIN_USER` and `INSTALOADER_SESSION_FILE` on the Python service.
+- Keep the session file private; it is equivalent to an account credential.
+- Do not commit session files or passwords to GitHub.
+- The bridge never accepts Instagram passwords over its HTTP API.
+
+Private profiles are only accessible if the logged-in account is authorized to view them. This project does not bypass privacy controls.
+
+## Supported service routes
+
+- Public profile and recent posts
+- Public profile posts
+- Reels-style video posts from the profile media stream
+- Stories (session may be required)
+- Highlights list (session may be required)
+- Hashtag posts (session may be required)
+- Post comments (session may be required)
+- Post metadata and media URLs
+- Post likers (session may be required)
+
+Not implemented by Instaloader: Instagram account search, global trending Reels, hashtag autocomplete, and ID-only Highlight item lookup. These endpoints return an explicit unsupported response; the Worker does not call another provider.
+
+## Rate limits and reliability
+
+Instaloader includes its own rate controller. Do not run several instances against the same Instagram account/IP, repeatedly restart the service, or try to evade Instagram's rate limits. Cloud/VPN/public proxy IPs may receive stricter anonymous limits. A 429 response means stop and wait; it does not trigger another provider.
+
+The Worker also applies per-client request throttling. No proxy rotation, CAPTCHA bypass, or rate-limit evasion is implemented.
+
+## Documentation
+
+- Instaloader source: https://github.com/instaloader/instaloader
+- Official usage: https://instaloader.github.io/basic-usage.html
+- Python module: https://instaloader.github.io/as-module.html
+- Rate-limit troubleshooting: https://instaloader.github.io/troubleshooting.html
