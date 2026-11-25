@@ -164,8 +164,7 @@ export class RateLimiter {
    });
    return Response.json(result,{headers:{"cache-control":"no-store"}});
   }
-  if(url.pathname==="/free-budget/settle"){
-   if(request.method!=="POST")return new Response("Method not allowed",{status:405});
+  if(request.method!=="POST")return new Response("Method not allowed",{status:405});
    let input;try{input=await request.json()}catch{return new Response("Bad request",{status:400});}
    const reserved=Math.max(0,Math.min(2,Number(input.reserved)||0)),charged=Math.max(0,Math.min(2,Number(input.charged)||0));
    const b=await this.state.storage.transaction(async tx=>{const x=await tx.get("inscrapeFreeBudget")||{used:0,reserved:0,cap:100};x.reserved=Math.max(0,x.reserved-reserved);x.used=Math.min(100,x.used+charged);await tx.put("inscrapeFreeBudget",x);return x;});
