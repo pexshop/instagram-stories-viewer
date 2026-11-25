@@ -211,7 +211,7 @@ export default {
     const profile=cleanProfile(url.searchParams.get("username"));
     const result=await social("/v2/instagram/profiles/"+encodeURIComponent(profile)+"?include=recentMedia,about",env);
     const d=result.data||{};
-    return json({username:profile,lookupStatus:d.lookupStatus||"unknown",profile:d.profile||null,recentMedia:normalize(d.recentMedia||d.posts),about:d.about||null,creditsCharged:result.meta?.creditsCharged??null,stale:!!result.meta?.stale});
+    const raw=d.profile||{};const mapped={handle:raw.handle||raw.username||profile,displayName:raw.full_name||raw.fullName||raw.username||profile,bio:raw.biography||raw.bio||"",avatarUrl:raw.profile_pic_url||raw.avatarUrl||"",avatarUrlHd:raw.profile_pic_url||raw.avatarUrlHd||"",verified:!!(raw.is_verified??raw.verified),isPrivate:!!(raw.is_private??raw.isPrivate),metrics:{posts:raw.media_count??raw.metrics?.posts??0,followers:raw.follower_count??raw.metrics?.followers??0,following:raw.following_count??raw.metrics?.following??0}};return json({username:profile,lookupStatus:d.lookupStatus||"ok",profile:mapped,recentMedia:normalize(d.recentMedia||d.posts),about:d.about||null,creditsCharged:result.meta?.creditsCharged??0,stale:!!result.meta?.stale});
    }
    if(url.pathname==="/api/trending/reels"){
     const result=await social("/v2/instagram/reels/trending",env);
