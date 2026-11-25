@@ -41,6 +41,7 @@ function rateLimit(request,path){
  const ip=request.headers.get("CF-Connecting-IP")||"unknown";
  const now=Date.now(),windowMs=60_000;
  for(const [key,b] of rateBuckets){if(now-b.start>windowMs)rateBuckets.delete(key);}
+ if(rateBuckets.size>4096){const oldest=rateBuckets.keys().next().value;if(oldest)rateBuckets.delete(oldest);}
  const expensive=/\/(profile|stories|highlights?|media|comments|likers|trending|search)/.test(path);
  const limit=expensive?12:60,key=ip+"|"+(expensive?"expensive":"general");
  let bucket=rateBuckets.get(key);
@@ -132,7 +133,7 @@ export default {
   const url=new URL(request.url);
   try{
    if(url.pathname.startsWith("/api/")){
-    if(request.method!=="GET"&&request.method!=="HEAD")return json({error:"Method not allowed"},405);
+    if(request.method!=="GET")return json({error:"Method not allowed"},405);
     const origin=request.headers.get("Origin");
     if(origin&&origin!==url.origin)return json({error:"Cross-origin request blocked"},403);
     if(request.headers.get("Sec-Fetch-Site")==="cross-site")return json({error:"Cross-site request blocked"},403);
