@@ -9,8 +9,10 @@ const SECURITY_HEADERS={
  "Cross-Origin-Opener-Policy":"same-origin",
  "X-Permitted-Cross-Domain-Policies":"none",
  "Origin-Agent-Cluster":"?1",
- "Strict-Transport-Security":"max-age=31536000; includeSubDomains"
+ "Strict-Transport-Security":"max-age=31536000; includeSubDomains",
+ "X-Robots-Tag":"noindex, nofollow, noarchive"
 };
+function badRequest(message){const error=new Error(message);error.status=400;return error;}
 function nonceValue(){
  const bytes=new Uint8Array(18);crypto.getRandomValues(bytes);
  return btoa(String.fromCharCode(...bytes));
@@ -24,7 +26,7 @@ function withSecurity(response,nonce=null){
  const stylePolicy=nonce
   ? `style-src 'self' 'nonce-${nonce}'; style-src-attr 'unsafe-inline'`
   : "style-src 'self'; style-src-attr 'unsafe-inline'";
- headers.set("Content-Security-Policy",`default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; ${scriptPolicy}; ${stylePolicy}; img-src 'self' data: blob: https://*.cdninstagram.com https://*.fbcdn.net https://assets.science.nasa.gov; media-src 'self' blob: https://*.cdninstagram.com https://*.fbcdn.net; font-src 'self' data:; connect-src 'self'; frame-src https://www.instagram.com https://open.spotify.com; upgrade-insecure-requests`);
+ headers.set("Content-Security-Policy",`default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; manifest-src 'self'; worker-src 'self' blob:; ${scriptPolicy}; ${stylePolicy}; img-src 'self' data: blob: https://*.cdninstagram.com https://*.fbcdn.net https://assets.science.nasa.gov; media-src 'self' blob: https://*.cdninstagram.com https://*.fbcdn.net; font-src 'self' data:; connect-src 'self'; frame-src https://www.instagram.com https://open.spotify.com; upgrade-insecure-requests`);
  return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
 }
 async function secureAssetResponse(response){
@@ -61,32 +63,32 @@ async function rateLimit(request,path,env){
 }
 function validMedia(value){
  const raw=String(value||"").trim();
- if(!raw||raw.length>500)throw new Error("请输入有效的 Instagram 帖子或 Reels 链接。");
- let u;try{u=new URL(raw)}catch{throw new Error("请使用完整的 Instagram 官方链接。");}
- if(u.protocol!=="https:"||!/(^|\.)instagram\.com$/i.test(u.hostname)||u.username||u.password)throw new Error("只支持 HTTPS Instagram 官方链接。");
- if(!/^\/(p|reel|tv)\/[A-Za-z0-9_-]+\/?$/.test(u.pathname))throw new Error("请使用 Instagram 帖子或 Reels 链接。");
+ if(!raw||raw.length>500)throw badRequest("请输入有效的 Instagram 帖子或 Reels 链接。");
+ let u;try{u=new URL(raw)}catch{throw badRequest("请使用完整的 Instagram 官方链接。");}
+ if(u.protocol!=="https:"||!/(^|\.)instagram\.com$/i.test(u.hostname)||u.username||u.password)throw badRequest("只支持 HTTPS Instagram 官方链接。");
+ if(!/^\/(p|reel|tv)\/[A-Za-z0-9_-]+\/?$/.test(u.pathname))throw badRequest("请使用 Instagram 帖子或 Reels 链接。");
  return u.origin+u.pathname;
 }
 function safeCursor(value){
  if(!value)return null;
  const v=String(value).trim();
- if(v.length>500||/[<>\r\n]/.test(v))throw new Error("分页标记无效，请重新加载列表。");
+ if(v.length>500||/[<>\r\n]/.test(v))throw badRequest("分页标记无效，请重新加载列表。");
  return v;
 }
 function cleanProfile(value){
  let raw=String(value||"").trim();
  if(/^https?:\/\//i.test(raw)){
-  let parsed;try{parsed=new URL(raw)}catch{throw new Error("Instagram 主页链接无效。")}
-  if(parsed.protocol!=="https:"||!/(^|\.)instagram\.com$/i.test(parsed.hostname)||parsed.username||parsed.password)throw new Error("只支持 HTTPS Instagram 官方主页链接。");
+  let parsed;try{parsed=new URL(raw)}catch{throw badRequest("Instagram 主页链接无效。")}
+  if(parsed.protocol!=="https:"||!/(^|\.)instagram\.com$/i.test(parsed.hostname)||parsed.username||parsed.password)throw badRequest("只支持 HTTPS Instagram 官方主页链接。");
   const parts=parsed.pathname.split("/").filter(Boolean);
   raw=parts[0]==="stories"?parts[1]||"":parts[0]||"";
  }
  raw=raw.replace(/^@/,"");
- if(!/^[A-Za-z0-9._]{1,30}$/.test(raw))throw new Error("请输入有效的 Instagram 用户名，或 instagram.com 用户主页链接。");
+ if(!/^[A-Za-z0-9._]{1,30}$/.test(raw))throw badRequest("请输入有效的 Instagram 用户名，或 instagram.com 用户主页链接。");
  return raw;
 }
 async function providerCreditState(env,action=null){
- if(!env.RATE_LIMITER)throw new Error("安全限流服务暂不可用。");
+ if(!env.RATE_LIMITER)throw badRequest("安全限流服务暂不可用。");
  const id=env.RATE_LIMITER.idFromName("socialfetch-credit-guard");
  const stub=env.RATE_LIMITER.get(id);
  const response=await stub.fetch("https://rate-limiter.internal/credit-state"+(action?"/exhausted":""),{
@@ -94,7 +96,7 @@ async function providerCreditState(env,action=null){
   headers:{"content-type":"application/json"},
   body:action?JSON.stringify({pauseMs:24*60*60*1000}):undefined
  });
- if(!response.ok)throw new Error("第三方额度保护状态暂不可用。");
+ if(!response.ok)throw badRequest("第三方额度保护状态暂不可用。");
  return response.json();
 }
 async function social(path,env){
@@ -170,17 +172,18 @@ export class RateLimiter {
  constructor(state,env){this.state=state;this.env=env;}
  async fetch(request){
   const url=new URL(request.url);
+  if(url.hostname!=="rate-limiter.internal")return new Response("Not found",{status:404,headers:{"cache-control":"no-store"}});
   if(url.pathname==="/credit-state"){
    if(request.method!=="GET")return new Response("Method not allowed",{status:405});
    const state=await this.state.storage.get("creditGuard");
    const now=Date.now();
-   if(state?.pausedUntil&&state.pausedUntil<=now){await this.state.storage.delete("creditGuard");return Response.json({paused:false});}
+   if(state?.pausedUntil&&state.pausedUntil<=now){await this.state.storage.delete("creditGuard");return Response.json({paused:false},{headers:{"cache-control":"no-store"}});}
    return Response.json({paused:!!state?.pausedUntil,retryAt:state?.pausedUntil||null},{headers:{"cache-control":"no-store"}});
   }
   if(url.pathname==="/credit-state/exhausted"){
    if(request.method!=="POST")return new Response("Method not allowed",{status:405});
    const input=await request.json().catch(()=>({}));
-   const pauseMs=Math.max(60_000,Math.min(30*24*60*60*1000,Number(input.pauseMs)||24*60*60*1000));
+   const pauseMs=24*60*60*1000;
    const pausedUntil=Date.now()+pauseMs;
    await this.state.storage.put("creditGuard",{pausedUntil});
    await this.state.storage.setAlarm(pausedUntil);
@@ -248,14 +251,14 @@ export default {
    }
    if(url.pathname==="/api/hashtags/search"){
     const query=String(url.searchParams.get("query")||"").trim();
-    if(!query||query.length>100) throw new Error("请输入话题关键词。");
+    if(!query||query.length>100) throw badRequest("请输入话题关键词。");
     const result=await social("/v2/instagram/hashtags/search?query="+encodeURIComponent(query),env);
     const d=result.data||{};
     return json({hashtags:d.hashtags||[],creditsCharged:result.meta?.creditsCharged??null});
    }
    if(url.pathname==="/api/hashtags/media"){
     const hashtag=String(url.searchParams.get("hashtag")||"").trim().replace(/^#/,"");
-    if(!/^[\p{L}\p{N}_.]+$/u.test(hashtag)||hashtag.length>100) throw new Error("话题标签格式无效。");
+    if(!/^[\p{L}\p{N}_.]+$/u.test(hashtag)||hashtag.length>100) throw badRequest("话题标签格式无效。");
     const tab=["top","recent","reels"].includes(url.searchParams.get("tab"))?url.searchParams.get("tab"):"top";
     const cursor=safeCursor(url.searchParams.get("cursor"));
     const qs=new URLSearchParams({tab});if(cursor)qs.set("cursor",cursor);
@@ -265,7 +268,7 @@ export default {
    }
    if(url.pathname==="/api/search/profiles"){
     const query=String(url.searchParams.get("query")||"").trim();
-    if(!query||query.length>100) throw new Error("请输入要搜索的账号关键词（最多 100 个字符）。");
+    if(!query||query.length>100) throw badRequest("请输入要搜索的账号关键词（最多 100 个字符）。");
     const cursor=safeCursor(url.searchParams.get("cursor"));
     const qs=new URLSearchParams({query});if(cursor)qs.set("cursor",cursor);
     const result=await social("/v2/instagram/profiles/search?"+qs.toString(),env);
@@ -313,7 +316,7 @@ export default {
    }
    if(url.pathname==="/api/highlight"){
     const id=String(url.searchParams.get("id")||"").trim();
-    if(!/^\d{5,30}$/.test(id)) throw new Error("精选快拍 ID 无效。");
+    if(!/^\d{5,30}$/.test(id)) throw badRequest("精选快拍 ID 无效。");
     const result=await social("/v2/instagram/highlights/"+encodeURIComponent(id),env);
     const d=result.data||{};
     return json({highlight:d.highlight||null,stories:normalize(d.media),lookupStatus:d.lookupStatus||"unknown",creditsCharged:result.meta?.creditsCharged??null});
@@ -327,6 +330,6 @@ export default {
    }
    if(url.pathname.startsWith("/api/")) return json({error:"Not found"},404);
    return env.ASSETS?await secureAssetResponse(await env.ASSETS.fetch(request)):withSecurity(new Response("Static assets binding missing",{status:500}));
-  }catch(e){const status=Number.isInteger(e.status)?e.status:400;return url.pathname.startsWith("/api/")?json({error:e.message||"请求失败",retryAt:e.retryAt||null},status):withSecurity(new Response("服务暂时不可用",{status:503}));}
+  }catch(e){const status=Number.isInteger(e.status)?e.status:500;const message=status>=500?"服务器暂时不可用，请稍后重试。":(e.message||"请求失败");return url.pathname.startsWith("/api/")?json({error:message,retryAt:e.retryAt||null},status):withSecurity(new Response("服务暂时不可用",{status:503}));}
  }
 };
