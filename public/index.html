@@ -69,7 +69,76 @@ input::placeholder{color:#9a9eaa}
 .panel .row .secondary{font-size:13px;padding:10px 5px}
 .panel .primary{min-height:46px}
 @media(max-width:600px){.simple-more>summary{padding:14px 0}.simple-more .more-inner{padding-bottom:4px}}
+
+/* Copied cosmic background and ambient typography from pexshop/dufguugt. */
+#spacePhoto{position:fixed;inset:0;z-index:0;pointer-events:none;background-color:#020208;background-image:linear-gradient(180deg,rgba(2,3,10,.12) 0%,rgba(3,4,12,.20) 44%,rgba(2,3,9,.62) 100%),url("https://science.nasa.gov/wp-content/uploads/2023/04/hubble_n44_wfc3_new_large_1mb-jpg.webp");background-size:cover;background-position:center 46%;background-repeat:no-repeat;opacity:.98;filter:saturate(1.12) contrast(1.08)}
+#spacePhoto:after{content:"";position:absolute;inset:0;background:radial-gradient(ellipse at 50% 42%,transparent 12%,rgba(1,2,8,.18) 60%,rgba(1,2,8,.66) 100%);mix-blend-mode:multiply}
+#galaxyPhoto{position:fixed;inset:0;z-index:0;pointer-events:none;background-image:url("https://assets.science.nasa.gov/dynamicimage/assets/science/missions/hubble/galaxies/spiral/Hubble_NGC1961_potw2517a.jpg?crop=faces%2Cfocalpoint&fit=crop&h=3799&w=4025");background-size:cover;background-position:center 48%;background-repeat:no-repeat;opacity:.19;mix-blend-mode:screen;filter:saturate(1.12) contrast(1.08)}
+#nebulaMotion{position:fixed;inset:-18%;z-index:1;pointer-events:none;opacity:.28;mix-blend-mode:screen;background:radial-gradient(ellipse at 22% 34%,rgba(180,76,133,.20),transparent 35%),radial-gradient(ellipse at 76% 62%,rgba(220,137,94,.16),transparent 32%),radial-gradient(ellipse at 55% 18%,rgba(112,91,168,.17),transparent 38%);filter:blur(34px);animation:nebulaFlow 78s ease-in-out infinite alternate}
+@keyframes nebulaFlow{0%{transform:translate3d(-2%,1%,0) scale(1)}50%{transform:translate3d(1%,-1%,0) scale(1.07)}100%{transform:translate3d(2%,2%,0) scale(1.12)}}
+#starfield{position:fixed;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;opacity:1}
+
+#ambientText{position:fixed;z-index:1;inset:0;display:grid;place-items:center;padding:18px;pointer-events:none;overflow:hidden;text-align:center;opacity:.72}
+.ambient-stage{position:relative;width:min(94vw,900px);display:flex;flex-direction:column;align-items:center;gap:clamp(18px,4vh,34px);transform-style:preserve-3d;perspective:900px}
+#ambientTextLine{position:relative;display:block;max-width:94vw;color:rgba(203,235,255,.78);font-size:clamp(15px,3.1vw,30px);line-height:1.35;font-weight:800;letter-spacing:.2em;text-transform:uppercase;overflow-wrap:anywhere;text-shadow:0 0 7px rgba(130,205,255,.85),0 0 22px rgba(105,151,255,.62),0 0 48px rgba(157,106,255,.34);animation:ambientFloat 12s ease-in-out infinite,ambientHolo 9s ease-in-out infinite,ambient3d 18s ease-in-out infinite;transition:opacity 1.8s ease;transform-style:preserve-3d}
+#ambientTextLine:before,#ambientTextLine:after{content:attr(data-text);position:absolute;inset:0;pointer-events:none;opacity:0}
+#ambientTextLine:before{color:rgba(89,226,255,.65);transform:translateX(-2px);clip-path:inset(0 0 55% 0);animation:ambientGlitch 11s steps(1,end) infinite}
+#ambientTextLine:after{color:rgba(198,113,255,.58);transform:translateX(2px);clip-path:inset(48% 0 0 0);animation:ambientGlitch 13s steps(1,end) infinite reverse}
+#ambientTextLine.is-typing:after,#ambientTextLine.is-typing:before{content:none}
+#ambientMarquee{display:block;max-width:96vw;white-space:nowrap;overflow:hidden;color:rgba(174,205,255,.52);font-size:clamp(8px,1.2vw,11px);font-weight:700;letter-spacing:.38em;text-shadow:0 0 12px rgba(123,169,255,.65);animation:marqueeDrift 44s linear infinite}
+#textParticles{position:fixed;inset:0;width:100%;height:100%;z-index:1;pointer-events:none;opacity:.58}
+@keyframes ambientFloat{0%,100%{translate:0 8px}50%{translate:0 -13px}}
+@keyframes ambientHolo{0%,100%{filter:hue-rotate(0deg) brightness(.85)}50%{filter:hue-rotate(28deg) brightness(1.22)}}
+@keyframes ambient3d{0%,100%{transform:rotateX(5deg) rotateY(-5deg) scale(.98)}50%{transform:rotateX(-4deg) rotateY(5deg) scale(1.025)}}
+@keyframes ambientGlitch{0%,91%,94%,100%{opacity:0}92%{opacity:.8;transform:translateX(-5px) skewX(-8deg)}93%{opacity:.55;transform:translateX(5px) skewX(5deg)}}
+@keyframes marqueeDrift{from{transform:translateX(35vw)}to{transform:translateX(-35vw)}}
+
+/* Stability profile: keep all text animated without running several GPU-heavy effects per text node. */
+.site-motion-text{
+ display:inline;position:static;max-width:none;vertical-align:baseline;
+ transform:none;transform-style:flat;filter:none;text-shadow:0 0 3px rgba(133,196,255,.12);
+ animation:siteTextLowCost 9s ease-in-out infinite!important;
+ will-change:opacity;
+}
+.site-motion-text:before,.site-motion-text:after{display:none!important;content:none!important;animation:none!important}
+@keyframes siteTextLowCost{0%,100%{opacity:.82}50%{opacity:1}}
+input::placeholder,textarea::placeholder{animation:none!important}
+@media(max-width:700px){
+ .site-motion-text{animation-duration:11s!important;will-change:auto}
+ #textParticles{opacity:.28}
+ #starfield{opacity:.78}
+}
+@media(prefers-reduced-motion:reduce){
+ .site-motion-text{animation:none!important;opacity:1!important}
+}
+
+
+
+:root{background:#020208!important}
+body{position:relative;isolation:isolate;background:transparent!important}
+#spacePhoto,#galaxyPhoto,#nebulaMotion,#starfield{pointer-events:none}
+#spacePhoto{z-index:0}
+#galaxyPhoto{z-index:0}
+#nebulaMotion{z-index:1}
+#starfield{z-index:1}
+#ambientText{z-index:1}
+main{position:relative;z-index:2}
+header{background:rgba(7,8,13,.66)!important;backdrop-filter:blur(14px)}
+.panel,.embed-card,.profile-view{background:rgba(15,15,22,.78)!important;backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
+.viewer{background:rgba(15,15,22,.72)!important}
+@media(max-width:760px){
+ #spacePhoto{background-position:52% center}
+ #galaxyPhoto{opacity:.13}
+ #textParticles{opacity:.28}
+}
+
 </style></head><body>
+<div id="spacePhoto" aria-hidden="true"></div>
+<div id="galaxyPhoto" aria-hidden="true"></div>
+<div id="nebulaMotion" aria-hidden="true"></div>
+<canvas id="starfield" aria-hidden="true"></canvas>
+<div id="ambientText" aria-hidden="true"><div class="ambient-stage"><span id="ambientTextLine" data-text="THE UNIVERSE IS STILL IN MOTION">THE UNIVERSE IS STILL IN MOTION</span><span id="ambientMarquee">BEYOND THE HORIZON · THROUGH THE SILENCE · INTO THE UNKNOWN · </span></div></div>
+<canvas id="textParticles" aria-hidden="true"></canvas>
 <header><div class="logo">Instagram <span>浏览器</span></div><div class="status" id="status">正在检查连接…</div></header>
 <main><section class="hero"><h1>浏览公开 Instagram 内容</h1><div class="sub">输入用户名，查看快拍、帖子、Reels 和主页资料。</div></section>
 <div class="notice">数据来自第三方公开数据服务。无需 Instagram 登录；仅支持可公开访问的内容。API 密钥保存在服务器端，服务可能有使用额度或费用。</div>
@@ -259,4 +328,206 @@ $("loadProfile").onclick=loadProfile;$("searchProfiles").onclick=searchProfiles;
 $("loadFollowers").onclick=()=>loadFollowers(true);$("moreFollowers").onclick=()=>loadFollowers(false);
 
 status();
-</script></body></html>
+</script>
+<script>
+
+(()=> {
+ const canvas=document.getElementById("starfield");
+ if(!canvas)return;
+ const ctx=canvas.getContext("2d",{alpha:true});
+ if(!ctx)return;
+ const reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+ let w=0,h=0,dpr=1,stars=[],shooters=[],raf=0,last=0;
+ const rand=(a,b)=>Math.random()*(b-a)+a;
+ function resize(){
+  dpr=Math.min(window.devicePixelRatio||1,1.5);
+  w=window.innerWidth;h=window.innerHeight;
+  canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);
+  canvas.style.width=w+"px";canvas.style.height=h+"px";
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  const count=Math.min(520,Math.max(220,Math.round(w*h/2600)));
+  stars=Array.from({length:count},()=>{const depth=rand(.25,1);return{x:rand(0,w),y:rand(0,h),r:rand(.25,1.55)*depth,a:rand(.28,.92),phase:rand(0,Math.PI*2),speed:rand(.35,1.25),drift:rand(.025,.16)*depth,depth,color:Math.random()>.88?"#b9d7ff":(Math.random()>.88?"#ffe5c2":"#e4edff")};});
+ }
+ function addShooter(){
+  if(reduce||document.hidden||shooters.length>1)return;
+  const fromTop=Math.random()>.35;
+  const x=rand(w*.12,w*.92),y=fromTop?rand(-30,h*.35):rand(h*.08,h*.55);
+  shooters.push({x,y,vx:rand(5,8),vy:rand(2,4),life:0,max:rand(34,52),len:rand(65,125)});
+  setTimeout(addShooter,rand(4200,9000));
+ }
+ function draw(t){
+  if(!w||!h)return;
+  const dt=Math.min((t-last)/16.67||1,2);last=t;
+  ctx.clearRect(0,0,w,h);
+  // NASA astrophotography supplies nebula and galaxy detail; this canvas animates stars only.
+  for(const s of stars){
+   const twinkle=reduce?1:(.62+.38*Math.sin(t*.0008*s.speed+s.phase));
+   s.y+=reduce?0:s.drift*dt;
+   if(s.y>h+2){s.y=-2;s.x=rand(0,w);}
+   ctx.globalAlpha=s.a*twinkle;
+   ctx.fillStyle=s.color;
+   if(s.r>1.12){ctx.shadowBlur=8*s.depth;ctx.shadowColor=s.color;}
+   ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();
+   ctx.shadowBlur=0;
+   if(s.r>1.28){ctx.globalAlpha*=.34;ctx.fillRect(s.x-3.8,s.y-.35,7.6,.7);ctx.fillRect(s.x-.35,s.y-3.8,.7,7.6);}
+  }
+  ctx.globalAlpha=1;
+  if(!reduce){
+   for(const s of shooters){
+    s.x+=s.vx*dt;s.y+=s.vy*dt;s.life+=dt;
+    const alpha=Math.max(0,1-s.life/s.max);
+    const tail=ctx.createLinearGradient(s.x-s.vx*s.len/7,s.y-s.vy*s.len/7,s.x,s.y);
+    tail.addColorStop(0,"rgba(130,185,255,0)");tail.addColorStop(1,"rgba(205,230,255,"+(.85*alpha)+")");
+    ctx.strokeStyle=tail;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(s.x-s.vx*s.len/7,s.y-s.vy*s.len/7);ctx.lineTo(s.x,s.y);ctx.stroke();
+   }
+   shooters=shooters.filter(s=>s.life<s.max);
+  }
+  ctx.globalAlpha=1;
+  if(!reduce)raf=requestAnimationFrame(draw);
+ }
+ function start(){if(raf)cancelAnimationFrame(raf);last=0;draw(performance.now());if(!reduce)addShooter();}
+ function stop(){if(raf)cancelAnimationFrame(raf);raf=0;}
+ document.addEventListener("visibilitychange",()=>{if(document.hidden)stop();else start();});
+ window.addEventListener("resize",()=>{resize();if(reduce)start();},{passive:true});
+ resize();start();
+})();
+
+</script>
+<script>
+(()=>{
+ const line=document.getElementById("ambientTextLine");
+ const canvas=document.getElementById("textParticles");
+ if(!line||!canvas)return;
+ const phrases=[
+  "THE UNIVERSE IS STILL IN MOTION",
+  "DISTANCE IS ANOTHER FORM OF SILENCE",
+  "EVERY STAR CARRIES AN ANCIENT STORY",
+  "A QUIET SIGNAL THROUGH THE DEEP",
+  "SPACE HAS NO EDGE TO THIS MOMENT",
+  "LIGHT MOVES · TIME REMAINS",
+  "SOMEWHERE A NEW STAR IS FORMING",
+  "KEEP LOOKING BEYOND THE HORIZON"
+ ];
+ const reduce=window.matchMedia&&window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+ let phraseIndex=0,charIndex=0,typingTimer=null,rotateTimer=null,raf=0,ctx=canvas.getContext("2d");
+ let width=0,height=0,dpr=1,particles=[],targets=[],lastBuild=0;
+ const rand=(a,b)=>Math.random()*(b-a)+a;
+ function typePhrase(){
+  if(reduce)return;
+  const phrase=phrases[phraseIndex];
+  line.classList.add("is-typing");
+  if(charIndex<phrase.length){charIndex++;line.textContent=phrase.slice(0,charIndex);line.dataset.text=line.textContent;typingTimer=setTimeout(typePhrase,95);}
+  else{
+   line.classList.remove("is-typing");
+   rotateTimer=setTimeout(()=>{
+    line.style.opacity="0";
+    setTimeout(()=>{
+     phraseIndex=(phraseIndex+1)%phrases.length;charIndex=0;buildTargets();
+     line.textContent="";line.dataset.text="";
+     line.style.opacity="";typePhrase();
+    },1700);
+   },6200);
+  }
+ }
+ function resize(){
+  dpr=Math.min(window.devicePixelRatio||1,1.25);
+  width=window.innerWidth;height=window.innerHeight;
+  canvas.width=Math.round(width*dpr);canvas.height=Math.round(height*dpr);
+  canvas.style.width=width+"px";canvas.style.height=height+"px";
+  ctx.setTransform(dpr,0,0,dpr,0,0);buildTargets();
+ }
+ function buildTargets(){
+  if(!ctx||!width||!height)return;
+  const text=phrases[phraseIndex];
+  const font=Math.max(12,Math.min(22,width*.027));
+  ctx.font="800 "+font+"px system-ui,sans-serif";
+  const metrics=ctx.measureText(text);
+  const maxWidth=Math.min(width*.78,metrics.width);
+  const off=document.createElement("canvas");off.width=Math.ceil(maxWidth+8);off.height=Math.ceil(font*2.2);
+  const ox=off.getContext("2d");ox.font=ctx.font;ox.textAlign="center";ox.textBaseline="middle";ox.fillStyle="#fff";
+  let display=text;
+  while(ox.measureText(display).width>maxWidth&&display.length>12)display=display.slice(0,-1);
+  ox.fillText(display,off.width/2,off.height/2);
+  const pixels=ox.getImageData(0,0,off.width,off.height).data;
+  targets=[];
+  for(let y=0;y<off.height;y+=3)for(let x=0;x<off.width;x+=3){
+   if(pixels[(y*off.width+x)*4+3]>120)targets.push({x:width/2-off.width/2+x,y:height/2+font*1.7-off.height/2+y});
+  }
+  const count=Math.min(440,targets.length);
+  particles=Array.from({length:count},(_,i)=>({x:rand(0,width),y:rand(0,height),tx:targets[Math.floor(i*targets.length/count)].x,ty:targets[Math.floor(i*targets.length/count)].y,sx:rand(width*.12,width*.88),sy:rand(height*.25,height*.75),phase:rand(0,Math.PI*2),size:rand(.65,1.55)}));
+  lastBuild=performance.now();
+ }
+ function draw(t){
+  if(!ctx||document.hidden)return;
+  ctx.clearRect(0,0,width,height);
+  const assembling=((t-lastBuild)%12000)<8500;
+  for(const p of particles){
+   const tx=assembling?p.tx:p.sx+Math.cos(t*.00016+p.phase)*18;
+   const ty=assembling?p.ty:p.sy+Math.sin(t*.00013+p.phase)*12;
+   p.x+=(tx-p.x)*.018;p.y+=(ty-p.y)*.018;
+   const shimmer=.35+.35*(.5+.5*Math.sin(t*.001+p.phase));
+   ctx.globalAlpha=shimmer;ctx.fillStyle="#b9dcff";ctx.shadowBlur=6;ctx.shadowColor="#8bbdff";
+   ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();
+  }
+  ctx.globalAlpha=1;ctx.shadowBlur=0;
+  raf=requestAnimationFrame(draw);
+ }
+ function start(){
+  if(reduce)return;
+  if(!typingTimer&&!rotateTimer)typePhrase();
+  if(!raf){buildTargets();raf=requestAnimationFrame(draw);}
+ }
+ function stop(){
+  if(typingTimer){clearTimeout(typingTimer);typingTimer=null;}
+  if(rotateTimer){clearTimeout(rotateTimer);rotateTimer=null;}
+  if(raf){cancelAnimationFrame(raf);raf=0;}
+ }
+ document.addEventListener("visibilitychange",()=>document.hidden?stop():start());
+ window.addEventListener("resize",resize,{passive:true});
+ resize();
+ if(reduce){line.textContent=phrases[0];line.dataset.text=phrases[0];}
+ else start();
+})();
+</script>
+<script>
+
+/* Animate every visible interface text node, including content added later by chat/feed updates. */
+(()=>{
+ const skip=new Set(["SCRIPT","STYLE","NOSCRIPT","TEXTAREA","CANVAS","SVG"]);
+ const walkerRoot=document.body;
+ function decorateText(node){
+  if(!node||node.nodeType!==Node.TEXT_NODE||!node.nodeValue.trim()||!/[A-Za-z]/.test(node.nodeValue))return;
+  const parent=node.parentElement;
+  if(!parent||skip.has(parent.tagName)||parent.closest("#ambientText,.brandmark,.site-motion-text,[aria-hidden='true']"))return;
+  const span=document.createElement("span");
+  span.className="site-motion-text";
+  span.textContent=node.nodeValue;
+  span.dataset.motionText=node.nodeValue;
+  node.parentNode.replaceChild(span,node);
+ }
+ function scan(root){
+  if(!root)return;
+  if(root.nodeType===Node.TEXT_NODE){decorateText(root);return;}
+  if(root.nodeType!==Node.ELEMENT_NODE&&root!==document.body)return;
+  if(root.nodeType===Node.ELEMENT_NODE&&(skip.has(root.tagName)||root.classList.contains("site-motion-text")||root.closest(".site-motion-text")))return;
+  const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
+  const nodes=[];let current;
+  while((current=walker.nextNode()))if(!current.parentElement?.closest(".site-motion-text"))nodes.push(current);
+  nodes.forEach(decorateText);
+ }
+ scan(walkerRoot);
+ const observer=new MutationObserver(records=>{
+  for(const record of records){
+   if(record.type==="characterData"){
+    const span=record.target.parentElement;
+    if(span&&span.classList.contains("site-motion-text"))span.dataset.motionText=record.target.nodeValue;
+    else decorateText(record.target);
+   }
+   for(const node of record.addedNodes||[])scan(node);
+  }
+ });
+ observer.observe(walkerRoot,{subtree:true,childList:true,characterData:true});
+})();
+
+</script>
+</body></html>
