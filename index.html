@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#09090b"><title>Stories Viewer</title>
+<style>
+:root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:#09090b;color:#fafafa}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(ellipse at 50% -20%,#30203c 0,#111 45%,#09090b 100%)}
+header{height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;border-bottom:1px solid #ffffff18;position:sticky;top:0;background:#09090be8;backdrop-filter:blur(16px);z-index:5}
+.brand{font-size:19px;font-weight:750;letter-spacing:-.5px}.brand span{background:linear-gradient(90deg,#ffcc70,#ff4f9a,#9b70ff);background-clip:text;color:transparent}
+main{max-width:1050px;margin:auto;padding:24px 16px 60px}.intro h1{font-size:clamp(26px,5vw,40px);margin:12px 0 8px}.muted{color:#aaa;font-size:14px;line-height:1.6}.notice{border:1px solid #a879ff55;background:#8d55ff12;border-radius:14px;padding:13px 15px;margin:20px 0;color:#ddd;font-size:13px;line-height:1.55}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 320px;gap:22px;align-items:start}.viewer{min-height:580px;background:#17171b;border:1px solid #ffffff18;border-radius:22px;display:flex;align-items:center;justify-content:center;position:relative;overflow:hidden}
+.empty{text-align:center;padding:28px;color:#aaa}.empty .emoji{font-size:42px;margin-bottom:12px}.empty strong{display:block;color:#fff;margin-bottom:8px}
+#stage{position:absolute;inset:0;display:none;background:#050505}.bars{position:absolute;z-index:3;top:12px;left:12px;right:12px;display:flex;gap:4px}.bar{height:3px;border-radius:4px;background:#ffffff55;flex:1;overflow:hidden}.bar i{display:block;height:100%;width:0;background:#fff}.userline{position:absolute;z-index:3;top:24px;left:16px;right:16px;display:flex;align-items:center;gap:9px;text-shadow:0 1px 5px #000}.avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,#ffb45e,#e3449b,#8057ff);display:grid;place-items:center;font-weight:700}.handle{font-size:14px;font-weight:650}.time{font-size:12px;color:#ddd}
+#media{width:100%;height:100%;object-fit:contain;background:#050505}.nav{position:absolute;z-index:4;top:80px;bottom:70px;width:34%;border:0;background:transparent}.prev{left:0}.next{right:0}
+.controls{position:absolute;z-index:4;bottom:14px;left:14px;right:14px;display:flex;justify-content:space-between;align-items:center}.controls button,.smallbtn{background:#ffffff20;color:#fff;border:1px solid #ffffff35;border-radius:999px;padding:9px 13px;font-size:13px;backdrop-filter:blur(12px)}
+.panel{border:1px solid #ffffff18;background:#141418;border-radius:18px;padding:17px}.panel h2{font-size:17px;margin:0 0 8px}.field{display:block;margin:14px 0 7px;font-size:13px;color:#ccc}input[type=text]{width:100%;background:#09090b;border:1px solid #ffffff25;border-radius:10px;color:#fff;padding:12px;font-size:14px}input[type=file]{width:100%;font-size:12px;color:#aaa} .primary{width:100%;margin-top:14px;background:linear-gradient(100deg,#a855f7,#ec4899);border:0;border-radius:11px;color:white;padding:12px;font-weight:700}
+.list{margin-top:18px}.entry{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #ffffff12}.entry .avatar{width:38px;height:38px;flex:none}.entry small{display:block;color:#999;margin-top:3px}.entry button{margin-left:auto}
+@media(max-width:760px){main{padding:16px 12px 40px}.layout{grid-template-columns:1fr}.viewer{min-height:min(72vh,680px);border-radius:18px}.panel{order:2}}
+</style></head>
+<body>
+<header><div class="brand">stories <span>viewer</span></div><div class="muted">PRIVATE PLAYER</div></header>
+<main><section class="intro"><h1>快拍浏览器</h1><div class="muted">全屏播放 · 自动切换 · iPhone 适配</div></section>
+<div class="notice">此版本是可运行的本地快拍播放器。Instagram 官方 API 不提供读取普通账号所有关注者快拍的通用权限；请仅添加你有权使用的媒体。不会要求你输入 Instagram 密码，也不会抓取或绕过平台访问控制。</div>
+<div class="layout">
+<section class="viewer">
+<div class="empty" id="empty"><div class="emoji">◉</div><strong>准备好播放快拍了吗？</strong><div>先在右侧添加一位用户和图片或视频</div></div>
+<div id="stage"><div class="bars" id="bars"></div><div class="userline"><div class="avatar" id="avatar">S</div><div><div class="handle" id="handle">@story</div><div class="time">快拍预览</div></div></div><img id="image" alt="Story media" style="display:none"><video id="video" playsinline></video><button class="nav prev" aria-label="上一条" id="prev"></button><button class="nav next" aria-label="下一条" id="next"></button><div class="controls"><button id="pause">暂停</button><button id="close">关闭</button></div></div>
+</section>
+<aside class="panel"><h2>添加快拍</h2><div class="muted">按用户分组，播放完一组后自动进入下一组。</div>
+<label class="field" for="username">用户名 / 显示名称</label><input id="username" type="text" placeholder="例如：my_friend">
+<label class="field" for="files">选择图片或视频</label><input id="files" type="file" accept="image/*,video/*" multiple>
+<button class="primary" id="add">添加到播放列表</button>
+<div class="list"><h2>播放列表 <span id="count" class="muted">0 位用户</span></h2><div id="entries" class="muted">还没有添加内容</div></div>
+</aside></div></main>
+<script>
+const users=[];let u=0,s=0,timer=null,paused=false,started=0,remaining=6000;
+const $=id=>document.getElementById(id),stage=$('stage'),img=$('image'),vid=$('video');
+function stop(){clearTimeout(timer);timer=null;vid.pause();if(img.dataset.url)URL.revokeObjectURL(img.dataset.url);if(vid.dataset.url)URL.revokeObjectURL(vid.dataset.url);img.dataset.url='';vid.dataset.url=''}
+function renderList(){$('count').textContent=users.length+' 位用户';$('entries').innerHTML='';if(!users.length){$('entries').textContent='还没有添加内容';return}users.forEach((x,i)=>{let d=document.createElement('div');d.className='entry';d.innerHTML='<div class="avatar"></div><div><b></b><small></small></div><button class="smallbtn">播放</button>';d.querySelector('.avatar').textContent=x.name.slice(0,1).toUpperCase();d.querySelector('b').textContent='@'+x.name;d.querySelector('small').textContent=x.items.length+' 条快拍';d.querySelector('button').onclick=()=>play(i,0);$('entries').append(d)})}
+$('add').onclick=()=>{const name=$('username').value.trim().replace(/^@/,'');const files=[...$('files').files];if(!name||!files.length){alert('请填写用户名并选择至少一个媒体文件');return}users.push({name,items:files.map(file=>({file}))});$('username').value='';$('files').value='';renderList();if(users.length===1)play(0,0)};
+function play(ui,si){stop();if(!users.length)return;u=(ui+users.length)%users.length;s=si;const user=users[u],item=user.items[s];$('empty').style.display='none';stage.style.display='block';$('handle').textContent='@'+user.name;$('avatar').textContent=user.name.slice(0,1).toUpperCase();$('bars').innerHTML='';user.items.forEach((_,i)=>{const b=document.createElement('div');b.className='bar';b.innerHTML='<i></i>';if(i<s)b.firstChild.style.width='100%';$('bars').append(b)});const url=URL.createObjectURL(item.file);const isVideo=item.file.type.startsWith('video/');img.style.display=isVideo?'none':'block';vid.style.display=isVideo?'block':'none';if(isVideo){vid.src=url;vid.dataset.url=url;vid.onloadedmetadata=()=>{remaining=Math.max(1000,vid.duration*1000);runProgress();vid.play().catch(()=>{})};vid.onended=next}else{img.src=url;img.dataset.url=url;remaining=6000;runProgress()}}
+function runProgress(){started=Date.now();const bar=$('bars').children[s]?.firstChild;if(!bar)return;function tick(){if(paused)return;const duration=vid.style.display==='block'&&Number.isFinite(vid.duration)?vid.duration*1000:6000;const elapsed=Date.now()-started;bar.style.width=Math.min(100,elapsed/duration*100)+'%';if(elapsed>=duration){next();return}timer=setTimeout(tick,50)}tick()}
+function next(){const user=users[u];if(!user)return;if(s+1<user.items.length)play(u,s+1);else if(u+1<users.length)play(u+1,0);else play(0,0)}
+function previous(){if(s>0)play(u,s-1);else if(u>0)play(u-1,users[u-1].items.length-1)}
+$('next').onclick=next;$('prev').onclick=previous;$('close').onclick=()=>{stop();stage.style.display='none';$('empty').style.display='block'};$('pause').onclick=()=>{paused=!paused;$('pause').textContent=paused?'继续':'暂停';if(paused){clearTimeout(timer);vid.pause()}else{if(vid.style.display==='block')vid.play().catch(()=>{});runProgress()}};
+document.addEventListener('visibilitychange',()=>{if(document.hidden){clearTimeout(timer);vid.pause()}else if(!paused&&stage.style.display==='block'){if(vid.style.display==='block')vid.play().catch(()=>{});runProgress()}});
+</script></body></html>
