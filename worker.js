@@ -75,12 +75,40 @@ function cleanProfile(value){
  return raw;
 }
 async function social(path,env){
- if(!env.SOCIALFETCH_API_KEY) throw new Error("尚未配置 SOCIALFETCH_API_KEY。请在 Cloudflare Pages → Settings → Variables and Secrets 添加加密 Secret。");
- let response;try{response=await fetch("https://api.socialfetch.dev"+path,{headers:{"x-api-key":env.SOCIALFETCH_API_KEY,"accept":"application/json"},signal:AbortSignal.timeout(15000)});}catch(e){if(e.name==="TimeoutError"||e.name==="AbortError"){const error=new Error("第三方 API 响应超过 15 秒，已自动停止等待。请稍后重试。");error.status=504;throw error;}throw e;}
- const data=await response.json().catch(()=>({}));
- if(!response.ok) {
-  const msg=data.error?.message||data.error?.detail||data.message||("第三方 API 请求失败（HTTP "+response.status+"）");
-  const error=new Error(response.status===401?"Social Fetch API Key 无效或已撤销。":response.status===402?"Social Fetch 额度不足或需要充值。":response.status===429?"请求过于频繁，请稍后重试。":msg); error.status=response.status>=500?502:response.status; throw error;
+ if(!env.SOCIALFETCH_API_KEY){
+  const error=new Error("第三方服务尚未配置，请联系网站管理员。");error.status=503;throw error;
+ }
+ if(typeof path!=="string"||!path.startsWith("/v2/instagram/")||path.includes("..")||path.length>1800){
+  const error=new Error("无效的上游请求。");error.status=400;throw error;
+ }
+ let response;
+ try{
+  response=await fetch("https://api.socialfetch.dev"+path,{
+   method:"GET",
+   headers:{"x-api-key":env.SOCIALFETCH_API_KEY,"accept":"application/json"},
+   redirect:"error",
+   signal:AbortSignal.timeout(12000)
+  });
+ }catch(e){
+  const error=new Error(e?.name==="TimeoutError"||e?.name==="AbortError"?"第三方服务暂时响应超时，请稍后重试。":"第三方服务暂时不可用，请稍后重试。");
+  error.status=504;throw error;
+ }
+ const length=Number(response.headers.get("content-length")||0);
+ if(length>5_000_000){
+  const error=new Error("第三方服务返回的数据过大，已安全终止。");error.status=502;throw error;
+ }
+ const body=await response.text();
+ if(body.length>5_000_000){
+  const error=new Error("第三方服务返回的数据过大，已安全终止。");error.status=502;throw error;
+ }
+ let data;
+ try{data=JSON.parse(body)}catch{
+  const error=new Error("第三方服务返回了无效数据。");error.status=502;throw error;
+ }
+ if(!response.ok){
+  const status=response.status===429?429:response.status===401?503:response.status===402?503:502;
+  const message=response.status===429?"第三方服务请求繁忙，请稍后重试。":response.status===401?"第三方服务认证暂不可用。":response.status===402?"第三方服务额度暂不可用。":"第三方服务请求失败，请稍后重试。";
+  const error=new Error(message);error.status=status;throw error;
  }
  return data;
 }
