@@ -288,7 +288,7 @@ function historyPostCard(item,items,i,p){
  const img=document.createElement("img");img.loading="lazy";img.src=item.thumbnail_url||item.media_url||"";img.alt=item.caption||("@"+p+" 的帖子");img.onerror=()=>{img.style.opacity=".25"};card.append(img);
  const kind=document.createElement("span");kind.className="media-kind";kind.textContent=item.media_type==="VIDEO"?"▶ 视频":item.media_type==="CAROUSEL"?"▦ 多图":"图片";card.append(kind);
  if(item.caption){const cap=document.createElement("span");cap.className="media-caption";cap.textContent=item.caption;card.append(cap)}
- card.addEventListener("click",()=>{if(item.carousel?.length)openMediaModal(item.carousel,0,p);else openMediaModal(items,i,p)});return card;
+ card.addEventListener("click",()=>{if(item.carousel?.length)startHistoryPostPlayback(item.carousel,0,p);else startHistoryPostPlayback(items,i,p)});return card;
 }
 async function refreshHistoryPosts(){
  if(historyRefreshBusy)return;const accounts=readProfileHistory();const feed=$("historyPostsFeed"),status=$("historyRefreshStatus");if(!accounts.length){status.textContent="暂无观看记录账号。先查看一个账号，之后即可刷新其帖子。";return}
@@ -328,7 +328,17 @@ function stop(){clearInterval(tick);tick=null;$("clip").pause();if(activeUrl){UR
 function hideStage(){stop();$("stage").style.display="none";$("empty").classList.remove("hidden")}
 function show(i){stop();if(!stories.length)return;index=(i+stories.length)%stories.length;paused=false;elapsedBeforePause=0;const item=stories[index],video=item.media_type==="VIDEO";$("empty").classList.add("hidden");$("stage").style.display="block";$("username").textContent="@"+(currentProfile||"instagram");$("avatar").textContent=(currentProfile||"IG").slice(0,2).toUpperCase();$("storytime").textContent=item.timestamp?new Date(item.timestamp).toLocaleString():"Instagram 内容";$("bars").innerHTML="";stories.forEach((_,n)=>{const b=document.createElement("div");b.className="bar";b.innerHTML="<i></i>";if(n<index)b.firstChild.style.width="100%";$("bars").append(b)});const media=video?$("clip"):$("photo"),other=video?$("photo"):$("clip");other.classList.add("hidden");media.classList.remove("hidden");if(video){media.src=item.media_url||item.thumbnail_url;media.onloadedmetadata=()=>{duration=Math.max(1000,media.duration*1000);begin()};media.onended=next;media.play().catch(()=>{});if(media.readyState>=1){duration=Math.max(1000,media.duration*1000);begin()}}else{media.src=item.media_url||item.thumbnail_url;duration=Number($("duration").value);begin()}}
 function begin(){clearInterval(tick);startAt=Date.now();tick=setInterval(()=>{if(paused)return;const total=$("clip").classList.contains("hidden")?Number($("duration").value):duration;const elapsed=elapsedBeforePause+Date.now()-startAt;const fill=$("bars").children[index]?.firstChild;if(fill)fill.style.width=Math.min(100,elapsed/total*100)+"%";if(elapsed>=total)next()},60)}
-function next(){if(index+1<stories.length)show(index+1);else if($("loop").checked)show(0);else{hideStage();msg("本次观看结束，正在自动刷新观看记录账号的最新帖子…");refreshHistoryPosts()}}
+async function playNextHistoryStories(){
+ const accounts=readProfileHistory();const current=accounts.findIndex(x=>x.toLowerCase()===currentProfile.toLowerCase());
+ for(let n=Math.max(0,current+1);n<accounts.length;n++){
+  const p=accounts[n];msg("当前账号快拍已结束，正在切换到下一个观看记录账号 @"+p+"…");
+  try{const d=await api("/api/stories?username="+encodeURIComponent(p));if(d.lookupStatus==="private"||!Array.isArray(d.stories)||!d.stories.length)continue;
+   currentProfile=p;$("profile").value=p;syncProfileUrl();loadList(d.stories,"下一个观看记录账号 · @"+p+" 的快拍");setStatus("公开数据 · @"+p);return true;
+  }catch(e){msg("@"+p+" 快拍读取失败，继续下一个账号…")}
+ }
+ hideStage();msg("所有观看记录账号的快拍已播放完毕。");return false;
+}
+function next(){if(index+1<stories.length)show(index+1);else if($("loop").checked)show(0);else{playNextHistoryStories()}}
 function prev(){show(index-1)}
 function loadList(data,label){stories=data||[];index=0;stop();if(!stories.length){hideStage();msg("没有找到可播放的内容。可能没有实时快拍、账号不可公开访问，或第三方服务未返回媒体文件。");return}msg(label+" · "+stories.length+" 条");show(0)}
 async function loadStories(){const p=profileValue();if(!p){msg("请先输入 Instagram 用户名。");return}rememberProfile(p);currentProfile=p;msg("正在读取公开快拍…");try{const d=await api("/api/stories?username="+encodeURIComponent(p));if(d.lookupStatus==="private"){msg("该账号为私密账号，第三方服务无法读取其内容。");return}loadList(d.stories,"实时快拍"+(d.stale?"（缓存数据）":""));setStatus("公开数据 · @"+p)}catch(e){msg(e.message)}}
@@ -347,20 +357,34 @@ document.addEventListener("keydown",e=>{if($("stage").style.display!=="block")re
 document.addEventListener("visibilitychange",()=>{if(document.hidden){if(!paused){elapsedBeforePause+=Date.now()-startAt;clearInterval(tick);$("clip").pause()}}else if($("stage").style.display==="block"&&!paused){$("clip").play().catch(()=>{});begin()}});
 // Render public profile data locally; never navigate the visitor to Instagram.
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
-let modalItems=[],modalIndex=0,modalProfile="";
-function closeMediaModal(){const modal=$("mediaModal");$("mediaModalStage").querySelectorAll("video").forEach(v=>{v.pause();v.removeAttribute("src");v.load()});modal.classList.remove("open");document.body.style.overflow=""}
+let modalItems=[],modalIndex=0,modalProfile="",modalAutoplay=false,modalTimer=null;
+function closeMediaModal(){modalAutoplay=false;if(modalTimer){clearTimeout(modalTimer);modalTimer=null}const modal=$("mediaModal");$("mediaModalStage").querySelectorAll("video").forEach(v=>{v.pause();v.removeAttribute("src");v.load()});modal.classList.remove("open");document.body.style.overflow=""}
 function renderMediaModal(){
- const item=modalItems[modalIndex];if(!item)return;const stage=$("mediaModalStage");
+ if(modalTimer){clearTimeout(modalTimer);modalTimer=null}const item=modalItems[modalIndex];if(!item)return;const stage=$("mediaModalStage");
  stage.querySelectorAll("img,video").forEach(el=>el.remove());
  const isVideo=item.media_type==="VIDEO";const el=document.createElement(isVideo?"video":"img");
- if(isVideo){el.src=item.media_url||item.thumbnail_url||"";el.controls=true;el.autoplay=true;el.playsInline=true;el.preload="metadata";el.addEventListener("error",()=>msg("视频暂时无法播放，媒体链接可能已过期。"))}
- else{el.src=item.media_url||item.thumbnail_url||"";el.alt=item.caption||"Instagram 图片";el.loading="eager"}
+ if(isVideo){el.src=item.media_url||item.thumbnail_url||"";el.controls=true;el.autoplay=true;el.playsInline=true;el.preload="metadata";el.addEventListener("ended",()=>{if(modalAutoplay)advanceHistoryPostPlayback()});el.addEventListener("error",()=>{msg("视频暂时无法播放，媒体链接可能已过期。");if(modalAutoplay)modalTimer=setTimeout(advanceHistoryPostPlayback,1800)})}
+ else{el.src=item.media_url||item.thumbnail_url||"";el.alt=item.caption||"Instagram 图片";el.loading="eager";if(modalAutoplay)modalTimer=setTimeout(advanceHistoryPostPlayback,7000)}
  stage.insertBefore(el,stage.querySelector("#mediaModalPrev"));
  $("mediaModalTitle").textContent="@"+modalProfile+(isVideo?" · 视频":" · 图片");
  $("mediaModalCount").textContent=(modalIndex+1)+" / "+modalItems.length;
  $("mediaModalPrev").disabled=modalItems.length<2;$("mediaModalNext").disabled=modalItems.length<2;
 }
-function openMediaModal(items,i,p){modalItems=items||[];modalIndex=i;modalProfile=p||"instagram";$("mediaModal").classList.add("open");document.body.style.overflow="hidden";renderMediaModal()}
+function openMediaModal(items,i,p,autoplay=false){modalItems=items||[];modalIndex=i;modalProfile=p||"instagram";modalAutoplay=autoplay;$("mediaModal").classList.add("open");document.body.style.overflow="hidden";renderMediaModal()}
+async function advanceHistoryPostPlayback(){
+ if(!modalAutoplay)return;
+ if(modalIndex+1<modalItems.length){modalIndex++;renderMediaModal();return}
+ const accounts=readProfileHistory();const current=accounts.findIndex(x=>x.toLowerCase()===modalProfile.toLowerCase());
+ for(let n=Math.max(0,current+1);n<accounts.length;n++){
+  const p=accounts[n];$("mediaModalTitle").textContent="正在切换到 @"+p+" 的帖子…";
+  try{const d=await api("/api/media?username="+encodeURIComponent(p)+"&tab=posts");const items=Array.isArray(d.media)?d.media:[];
+   if(d.lookupStatus==="private"||d.lookupStatus==="not_found"||!items.length)continue;
+   modalProfile=p;modalItems=items;modalIndex=0;$("profile").value=p;syncProfileUrl();renderMediaModal();msg("已自动切换到下一个观看记录账号 @"+p+" 的帖子");return;
+  }catch(e){msg("@"+p+" 帖子读取失败，继续下一个账号…")}
+ }
+ modalAutoplay=false;closeMediaModal();msg("所有观看记录账号的帖子已播放完毕。");
+}
+function startHistoryPostPlayback(items,i,p){openMediaModal(items,i,p,true)}
 function stepMediaModal(delta){if(!modalItems.length)return;modalIndex=(modalIndex+delta+modalItems.length)%modalItems.length;renderMediaModal()}
 $("mediaModalClose").onclick=closeMediaModal;$("mediaModalPrev").onclick=()=>stepMediaModal(-1);$("mediaModalNext").onclick=()=>stepMediaModal(1);
 $("mediaModal").addEventListener("click",e=>{if(e.target===$("mediaModal"))closeMediaModal()});
