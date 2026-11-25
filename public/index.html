@@ -169,6 +169,9 @@ html{scroll-behavior:smooth;scroll-padding-top:116px}
  html{scroll-padding-top:112px}
 }
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+
+/* Follower feed */
+.follower-feed{margin-top:18px}.feed-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.feed-heading h2{font-size:18px;margin:0}.feed-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.feed-list{display:grid;gap:14px;margin-top:12px}.feed-account{border:1px solid #ffffff20;border-radius:13px;padding:12px;background:#ffffff05}.feed-account-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}.feed-account-head a{color:inherit;text-decoration:none;font-weight:750}.feed-media-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.feed-media{position:relative;aspect-ratio:1;border:0;border-radius:8px;padding:0;overflow:hidden;background:#222;cursor:pointer}.feed-media img{width:100%;height:100%;object-fit:cover;display:block}.feed-media span{position:absolute;right:5px;bottom:5px;background:#000b;color:#fff;padding:3px 5px;border-radius:5px;font-size:10px}.feed-caption{font-size:12px;color:#bbb;line-height:1.45;margin-top:8px;overflow-wrap:anywhere}.feed-time{font-size:10px;color:#888;margin-top:5px}@media(max-width:600px){.follower-feed{padding:13px}.feed-account{padding:9px}.feed-media-grid{gap:4px}}
 </style></head><body>
 <div id="spacePhoto" aria-hidden="true"></div>
 <div id="galaxyPhoto" aria-hidden="true"></div>
@@ -184,6 +187,12 @@ html{scroll-behavior:smooth;scroll-padding-top:116px}
  <a href="#searchHashtags">话题搜索</a><a href="#loadComments">评论</a><a href="#loadLikers">点赞者</a><a href="#settingsTop">播放设置</a>
 </nav>
 <main><section class="hero" id="homeSection"><h1>浏览公开 Instagram 内容</h1><div class="sub">输入用户名，查看快拍、帖子、Reels 和主页资料。</div></section>
+<section class="profile-view follower-feed" id="followerFeedSection">
+ <div class="feed-heading"><div><h2>关注者动态</h2><p class="profile-note">汇总关注者名单中账号的最新公开帖子。每批读取 20 个账号，避免一次请求过多。</p></div><span class="followers-count" id="feedProgress">0 / 0</span></div>
+ <div class="feed-actions"><button class="primary" id="loadFollowerFeed" type="button">加载关注者帖子</button><button class="secondary" id="resetFollowerFeed" type="button">重新加载</button></div>
+ <p class="profile-note" id="feedStatus">先在「我的关注者名单」添加账号，再加载动态。每个账号会请求一次第三方 API，可能消耗额度。</p>
+ <div id="followerFeedList" class="feed-list"></div>
+</section>
 <div class="notice">数据来自第三方公开数据服务。无需 Instagram 登录；仅支持可公开访问的内容。API 密钥保存在服务器端，服务可能有使用额度或费用。</div>
 <div class="layout"><section class="viewer"><div class="empty" id="empty"><div class="symbol">◉</div><b>准备浏览快拍</b><div>输入公开 Instagram 用户名即可浏览可访问的快拍、精选、帖子和 Reels</div></div>
 <div class="stage" id="stage"><div class="bars" id="bars"></div><div class="who"><div class="avatar" id="avatar">IG</div><div><strong id="username">@instagram</strong><small id="storytime">快拍</small></div></div><img id="photo" alt="Instagram story" class="hidden"><video id="clip" playsinline class="hidden"></video><button class="nav prev" id="prev" aria-label="上一条"></button><button class="nav next" id="next" aria-label="下一条"></button><div class="controls"><button class="glass" id="pause">暂停</button><button class="glass" id="fullscreen">全屏</button><button class="glass" id="close">关闭</button></div></div></section>
@@ -251,6 +260,52 @@ function renderManualFollowers(){
  });
 }
 function saveManualFollowers(items){try{localStorage.setItem(MANUAL_FOLLOWERS_KEY,JSON.stringify(items));renderManualFollowers()}catch{msg("浏览器存储不可用，无法保存名单。")}}
+
+let followerFeedOffset=0,followerFeedBusy=false;
+const FOLLOWER_FEED_BATCH=20;
+function renderFollowerFeedProgress(){const total=readManualFollowers().length;const p=$("feedProgress");if(p)p.textContent=Math.min(followerFeedOffset,total)+" / "+total+" 个账号"}
+function makeFeedAccountCard(handle,items){
+ const card=document.createElement("article");card.className="feed-account";
+ const head=document.createElement("div");head.className="feed-account-head";
+ const profile=document.createElement("a");profile.href="https://www.instagram.com/"+encodeURIComponent(handle)+"/";profile.target="_blank";profile.rel="noopener noreferrer";profile.textContent="@"+handle;
+ const count=document.createElement("span");count.className="followers-count";count.textContent=items.length+" 条帖子";head.append(profile,count);card.append(head);
+ const grid=document.createElement("div");grid.className="feed-media-grid";
+ items.forEach((item,i)=>{const b=document.createElement("button");b.type="button";b.className="feed-media";const im=document.createElement("img");im.loading="lazy";im.src=item.thumbnail_url||item.media_url||"";im.alt=item.caption||"Instagram 帖子";b.append(im);if(item.media_type==="VIDEO"){const tag=document.createElement("span");tag.textContent="▶ 视频";b.append(tag)}b.addEventListener("click",()=>openMediaModal(items,i,handle));grid.append(b)});
+ card.append(grid);
+ const latest=items[0];if(latest?.caption){const caption=document.createElement("div");caption.className="feed-caption";caption.textContent=latest.caption;card.append(caption)}
+ if(latest?.timestamp){const time=document.createElement("div");time.className="feed-time";const d=new Date(latest.timestamp);time.textContent=Number.isNaN(d.getTime())?String(latest.timestamp):d.toLocaleString();card.append(time)}
+ return card;
+}
+async function loadFollowerFeed(reset=false){
+ if(followerFeedBusy)return;
+ const users=readManualFollowers(),list=$("followerFeedList"),statusBox=$("feedStatus"),button=$("loadFollowerFeed");
+ if(reset){followerFeedOffset=0;list.replaceChildren();statusBox.textContent="已重置动态列表。"}
+ if(!users.length){statusBox.textContent="关注者名单为空。请先添加 Instagram 用户名；系统不会自动读取你的 Instagram 登录关系。";renderFollowerFeedProgress();return}
+ if(followerFeedOffset>=users.length){statusBox.textContent="名单中的账号已全部处理。点击「重新加载」可再次获取最新帖子。";renderFollowerFeedProgress();return}
+ const batch=users.slice(followerFeedOffset,followerFeedOffset+FOLLOWER_FEED_BATCH);
+ followerFeedBusy=true;button.disabled=true;$("resetFollowerFeed").disabled=true;
+ let completed=0,credits=0,errors=0;
+ statusBox.textContent="正在读取 "+batch.length+" 个账号的公开帖子…";
+ try{
+  const results=[];
+  for(let i=0;i<batch.length;i+=3){
+   const chunk=batch.slice(i,i+3);
+   const part=await Promise.all(chunk.map(async handle=>{
+    try{const d=await api("/api/media?username="+encodeURIComponent(handle)+"&tab=posts");return {handle,items:d.media||[],credits:d.creditsCharged||0,error:null}}
+    catch(e){return {handle,items:[],credits:0,error:e.message}}
+   }));
+   results.push(...part);completed+=part.length;
+   statusBox.textContent="已处理 "+completed+" / "+batch.length+" 个账号…";
+  }
+  results.sort((a,b)=>{const ta=Date.parse(a.items[0]?.timestamp||"")||0,tb=Date.parse(b.items[0]?.timestamp||"")||0;return tb-ta});
+  results.forEach(r=>{credits+=Number(r.credits)||0;if(r.error){errors++;const el=document.createElement("div");el.className="feed-account";el.textContent="@"+r.handle+"：读取失败 — "+r.error;list.append(el)}else if(r.items.length){list.append(makeFeedAccountCard(r.handle,r.items.slice(0,9)))}else{const el=document.createElement("div");el.className="feed-account";el.textContent="@"+r.handle+"：没有返回公开帖子";list.append(el)}});
+  followerFeedOffset+=batch.length;renderFollowerFeedProgress();
+  const remain=Math.max(0,users.length-followerFeedOffset);
+  statusBox.textContent="本批完成："+batch.length+" 个账号，"+(batch.length-errors)+" 个成功，"+errors+" 个失败；返回 "+results.reduce((n,r)=>n+r.items.length,0)+" 条帖子。API credits："+(credits||"未提供")+"。"+(remain?" 还有 "+remain+" 个账号，点击按钮继续。":" 已处理完名单中的账号。");
+  button.textContent=remain?"加载下一批帖子":"已加载全部账号";
+ }finally{followerFeedBusy=false;button.disabled=followerFeedOffset>=users.length;$("resetFollowerFeed").disabled=false}
+}
+
 function addManualFollower(){
  const field=$("manualFollowerInput"),p=field.value.trim().replace(/^@/,"");
  if(!/^[A-Za-z0-9._]{1,30}$/.test(p)){msg("请输入有效的 Instagram 用户名（1–30 位字母、数字、点或下划线）。");return}
@@ -273,7 +328,7 @@ async function loadHighlights(){const p=profileValue();if(!p){msg("请先输入 
 async function playHighlight(){const id=$("highlights").value;if(!id){msg("请先加载并选择一个精选合集。");return}try{msg("正在加载精选快拍…");const d=await api("/api/highlight?id="+encodeURIComponent(id));loadList(d.stories,"精选快拍")}catch(e){msg(e.message)}}
 async function loadMedia(tab){const p=profileValue();if(!p){msg("请先输入 Instagram 用户名。");return}rememberProfile(p);currentProfile=p;try{msg("正在读取"+(tab==="reels"?"Reels":"帖子")+"…");const d=await api("/api/media?username="+encodeURIComponent(p)+"&tab="+tab);loadList(d.media,tab==="reels"?"Reels":"帖子")}catch(e){msg(e.message)}}
 async function status(){try{const d=await api("/api/status");setStatus(d.apiKeyConfigured?"API 密钥已配置 · 连接待验证":"等待配置第三方 API");if(!d.apiKeyConfigured)msg("尚未配置 SOCIALFETCH_API_KEY。请在 Cloudflare Pages → Settings → Variables and Secrets 添加加密 Secret。")}catch(e){setStatus("API 状态读取失败");msg(e.message)}}
-$("loadStories").onclick=loadStories;$("loadHighlights").onclick=loadHighlights;$("playHighlight").onclick=playHighlight;$("loadPosts").onclick=()=>loadMedia("posts");$("loadReels").onclick=()=>loadMedia("reels");$("profile").addEventListener("input",syncProfileUrl);$("profile").addEventListener("keydown",e=>{if(e.key==="Enter")loadStories()});$("profileUrl").addEventListener("click",()=>rememberProfile());$("clearProfileHistory").onclick=()=>{try{localStorage.removeItem(PROFILE_HISTORY_KEY)}catch{}renderProfileHistory()};syncProfileUrl();renderProfileHistory();
+$("loadFollowerFeed").onclick=()=>loadFollowerFeed(false);$("resetFollowerFeed").onclick=()=>{ $("loadFollowerFeed").textContent="加载关注者帖子";loadFollowerFeed(true)};$("loadStories").onclick=loadStories;$("loadHighlights").onclick=loadHighlights;$("playHighlight").onclick=playHighlight;$("loadPosts").onclick=()=>loadMedia("posts");$("loadReels").onclick=()=>loadMedia("reels");$("profile").addEventListener("input",syncProfileUrl);$("profile").addEventListener("keydown",e=>{if(e.key==="Enter")loadStories()});$("profileUrl").addEventListener("click",()=>rememberProfile());$("clearProfileHistory").onclick=()=>{try{localStorage.removeItem(PROFILE_HISTORY_KEY)}catch{}renderProfileHistory()};syncProfileUrl();renderProfileHistory();
 $("next").onclick=next;$("prev").onclick=prev;$("close").onclick=hideStage;
 $("pause").onclick=()=>{paused=!paused;$("pause").textContent=paused?"继续":"暂停";if(paused){elapsedBeforePause+=Date.now()-startAt;clearInterval(tick);$("clip").pause()}else{$("clip").play().catch(()=>{});begin()}};
 $("duration").onchange=()=>{if(stories[index]&&stories[index].media_type!=="VIDEO"){elapsedBeforePause=0;begin()}};
