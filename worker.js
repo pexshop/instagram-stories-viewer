@@ -199,10 +199,13 @@ export default {
     try{
      const base=new URL(env.INSTALOADER_SERVICE_URL);
      if(base.protocol!=="https:")throw new Error("HTTPS required");
-     const r=await fetch(new URL("/health",base.origin).toString(),{headers:{"authorization":"Bearer "+env.INSTALOADER_SERVICE_TOKEN},redirect:"error",signal:AbortSignal.timeout(5000)});
+     // /health is intentionally public; it verifies service reachability, not API-token auth.
+     // Render Free instances can take a while to wake after idle, so allow a longer timeout.
+     const r=await fetch(new URL("/health",base.origin).toString(),{redirect:"error",signal:AbortSignal.timeout(25000)});
      const d=await r.json().catch(()=>({}));
-     return json({connected:r.ok&&d.ok===true,provider:"Instaloader",configured:true,authenticated:!!d.authenticated,version:d.version||null,paidFallback:false,creditsCharged:0,message:r.ok?"Instaloader Python 服务已连接；Instagram 数据请求仍受 Instagram 自身限流。":"Instaloader Python 服务暂不可用。"});
-    }catch{return json({connected:false,provider:"Instaloader",configured:true,paidFallback:false,creditsCharged:0,message:"无法连接 Instaloader Python 服务，请检查服务地址、Token 和运行状态。"});}
+     const connected=r.ok&&d.ok===true;
+     return json({connected,provider:"Instaloader",configured:true,authenticated:!!d.authenticated,version:d.version||null,paidFallback:false,creditsCharged:0,httpStatus:r.status,message:connected?"Instaloader Python 服务已连接；Instagram 数据请求仍受 Instagram 自身限流。":("Render 健康检查返回 HTTP "+r.status+"，响应不是有效的健康状态。")});
+    }catch(err){return json({connected:false,provider:"Instaloader",configured:true,paidFallback:false,creditsCharged:0,error:err?.name||"FetchError",message:"Cloudflare 无法在 25 秒内完成 Render 健康检查。请确认 URL 是服务根地址且 Render 服务为 Live；如果刚休眠，请稍后重试。"});}
    }
    if(url.pathname==="/api/profile"){
     const profile=cleanProfile(url.searchParams.get("username"));
