@@ -152,35 +152,9 @@ export class RateLimiter {
  constructor(state,env){this.state=state;this.env=env;}
  async fetch(request){
   const url=new URL(request.url);
-  if(url.hostname!=="rate-limiter.internal")return new Response("Not found",{status:404,headers:{"cache-control":"no-store"}});
+  if(url.hostname!=="rate-limiter.internal"||url.pathname!=="/check")return new Response("Not found",{status:404,headers:{"cache-control":"no-store"}});
   if(request.method!=="POST")return new Response("Method not allowed",{status:405});
-   let input;try{input=await request.json()}catch{return new Response("Bad request",{status:400});}
-   const cost=Math.max(0.1,Math.min(2,Number(input.cost)||2));
-   const result=await this.state.storage.transaction(async tx=>{
-    const b=await tx.get("inscrapeFreeBudget")||{used:0,reserved:0,cap:100};
-    b.cap=Math.min(b.cap||100,100);
-    if(b.used+b.reserved+cost>b.cap)return {allowed:false,used:b.used,reserved:b.reserved,cap:b.cap,remaining:Math.max(0,b.cap-b.used-b.reserved)};
-    b.reserved+=cost;await tx.put("inscrapeFreeBudget",b);return {allowed:true,used:b.used,reserved:b.reserved,cap:b.cap,remaining:Math.max(0,b.cap-b.used-b.reserved)};
-   });
-   return Response.json(result,{headers:{"cache-control":"no-store"}});
-  }
-  if(request.method!=="POST")return new Response("Method not allowed",{status:405});
-   let input;try{input=await request.json()}catch{return new Response("Bad request",{status:400});}
-   const reserved=Math.max(0,Math.min(2,Number(input.reserved)||0)),charged=Math.max(0,Math.min(2,Number(input.charged)||0));
-   const b=await this.state.storage.transaction(async tx=>{const x=await tx.get("inscrapeFreeBudget")||{used:0,reserved:0,cap:100};x.reserved=Math.max(0,x.reserved-reserved);x.used=Math.min(100,x.used+charged);await tx.put("inscrapeFreeBudget",x);return x;});
-   return Response.json({used:b.used,reserved:b.reserved,cap:b.cap,remaining:Math.max(0,b.cap-b.used-b.reserved)},{headers:{"cache-control":"no-store"}});
-  }
-  if(request.method!=="POST")return new Response("Method not allowed",{status:405});
-   const input=await request.json().catch(()=>({}));
-   const pauseMs=24*60*60*1000;
-   const pausedUntil=Date.now()+pauseMs;
-   await this.state.storage.put("creditGuard",{pausedUntil});
-   await this.state.storage.setAlarm(pausedUntil);
-   return Response.json({paused:true,retryAt:pausedUntil},{headers:{"cache-control":"no-store"}});
-  }
-  if(request.method!=="POST")return new Response("Method not allowed",{status:405});
-  let input;
-  try{input=await request.json()}catch{return new Response("Bad request",{status:400});}
+  let input;try{input=await request.json()}catch{return new Response("Bad request",{status:400});}
   const limit=Math.max(1,Math.min(100,Number(input.limit)||1));
   const windowMs=Math.max(1000,Math.min(300000,Number(input.windowMs)||60000));
   const now=Date.now();
@@ -197,9 +171,7 @@ export class RateLimiter {
   }catch{return new Response("Rate limiter storage unavailable",{status:503});}
   return Response.json(result,{headers:{"cache-control":"no-store"}});
  }
- async alarm(){
-  try{await this.state.storage.delete("bucket");}catch{}
- }
+ async alarm(){try{await this.state.storage.delete("bucket");}catch{}}
 }
 
 export default {
