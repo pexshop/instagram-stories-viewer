@@ -171,6 +171,7 @@ header{
 <label class="field" for="profile">Instagram 用户名</label><input id="profile" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="例如 nasa" style="width:100%;background:#09090d;border:1px solid #ffffff26;color:#fff;padding:12px;border-radius:10px">
 <a id="profileUrl" class="small" href="#" target="_blank" rel="noopener noreferrer" style="display:none;color:#c6a5ff;text-decoration:underline;overflow-wrap:anywhere;margin-top:9px">打开 Instagram 主页</a>
 <details class="history-more"><summary>最近浏览记录</summary><div class="row" style="align-items:center;justify-content:space-between"><span class="small">最多保存 20 个账号</span><button class="secondary" id="clearProfileHistory" type="button">清空</button></div><div id="profileHistory" class="small" style="display:grid;gap:8px;margin-top:10px">暂无记录</div></details>
+<div class="followers-box" id="manualFollowersBox"><div class="followers-head"><h3>我的关注者名单</h3><span class="followers-count" id="manualFollowersCount">0 位</span></div><p class="profile-note">手动保存 Instagram 用户名，方便管理和打开主页。此名单仅保存在当前浏览器，不会改变 Instagram 的真实关注关系。</p><div class="embed-form"><input id="manualFollowerInput" type="text" maxlength="30" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="输入 Instagram 用户名"><button class="primary" id="addFollower" type="button" style="width:auto;min-width:105px">＋ 添加</button></div><div id="manualFollowersList" class="followers-list"></div></div>
 <button class="primary" id="loadStories" style="margin-top:10px">查看快拍</button>
 <div class="row"><button class="secondary" id="loadHighlights">精选</button><button class="secondary" id="loadPosts">帖子</button><button class="secondary" id="loadReels">Reels</button></div>
 <label class="field" for="highlights">选择一个精选合集</label><select id="highlights"><option value="">先加载精选快拍</option></select>
@@ -211,6 +212,34 @@ function readProfileHistory(){try{const v=JSON.parse(localStorage.getItem(PROFIL
 function renderProfileHistory(){const box=$("profileHistory");if(!box)return;const items=readProfileHistory();box.replaceChildren();if(!items.length){box.textContent="暂无记录";return}items.forEach(p=>{const row=document.createElement("div");row.style.cssText="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #ffffff20;border-radius:10px";const link=document.createElement("a");link.href="https://www.instagram.com/"+encodeURIComponent(p)+"/";link.target="_blank";link.rel="noopener noreferrer";link.textContent="@"+p;link.style.cssText="color:#c6a5ff;overflow-wrap:anywhere";link.addEventListener("click",()=>rememberProfile(p));const view=document.createElement("button");view.type="button";view.className="secondary";view.textContent="再次浏览";view.addEventListener("click",()=>{ $("profile").value=p;syncProfileUrl();loadStories();});row.append(link,view);box.append(row)})}
 function rememberProfile(value=profileValue()){const p=value.trim().replace(/^@/,"");if(!/^[A-Za-z0-9._]{1,30}$/.test(p))return;try{const items=[p,...readProfileHistory().filter(x=>x.toLowerCase()!==p.toLowerCase())].slice(0,20);localStorage.setItem(PROFILE_HISTORY_KEY,JSON.stringify(items));renderProfileHistory()}catch{const box=$("profileHistory");if(box)box.textContent="浏览器存储不可用，无法保存记录"}}
 function syncProfileUrl(){const p=profileValue(),a=$("profileUrl");if(/^[A-Za-z0-9._]{1,30}$/.test(p)){a.href="https://www.instagram.com/"+encodeURIComponent(p)+"/";a.textContent="打开 Instagram 主页 · @"+p;a.style.display="block"}else{a.removeAttribute("href");a.style.display="none"}}
+const MANUAL_FOLLOWERS_KEY="ig_manual_followers_v1";
+function readManualFollowers(){try{const v=JSON.parse(localStorage.getItem(MANUAL_FOLLOWERS_KEY)||"[]");return Array.isArray(v)?v.filter(x=>typeof x==="string"&&/^[A-Za-z0-9._]{1,30}$/.test(x)):[]}catch{return[]}}
+function renderManualFollowers(){
+ const box=$("manualFollowersList"),count=$("manualFollowersCount");if(!box||!count)return;
+ const items=readManualFollowers();count.textContent=items.length+" 位";box.replaceChildren();
+ if(!items.length){const empty=document.createElement("div");empty.className="profile-note";empty.textContent="还没有添加账号。";box.append(empty);return}
+ items.forEach(p=>{
+  const row=document.createElement("div");row.className="follower-card";
+  const info=document.createElement("div");info.style.cssText="min-width:0;flex:1";
+  const name=document.createElement("div");name.className="follower-name";name.textContent="@"+p;
+  const note=document.createElement("div");note.className="follower-handle";note.textContent="已保存的用户名";
+  info.append(name,note);
+  const open=document.createElement("a");open.href="https://www.instagram.com/"+encodeURIComponent(p)+"/";open.target="_blank";open.rel="noopener noreferrer";open.className="secondary";open.textContent="打开";
+  open.style.cssText="text-decoration:none;white-space:nowrap";
+  const remove=document.createElement("button");remove.type="button";remove.className="secondary";remove.textContent="删除";remove.addEventListener("click",()=>{saveManualFollowers(readManualFollowers().filter(x=>x.toLowerCase()!==p.toLowerCase()))});
+  row.append(info,open,remove);box.append(row);
+ });
+}
+function saveManualFollowers(items){try{localStorage.setItem(MANUAL_FOLLOWERS_KEY,JSON.stringify(items));renderManualFollowers()}catch{msg("浏览器存储不可用，无法保存名单。")}}
+function addManualFollower(){
+ const field=$("manualFollowerInput"),p=field.value.trim().replace(/^@/,"");
+ if(!/^[A-Za-z0-9._]{1,30}$/.test(p)){msg("请输入有效的 Instagram 用户名（1–30 位字母、数字、点或下划线）。");return}
+ const items=readManualFollowers();
+ if(items.some(x=>x.toLowerCase()===p.toLowerCase())){msg("这个用户名已经在名单中。");return}
+ if(items.length>=500){msg("名单最多保存 500 个账号。");return}
+ saveManualFollowers([p,...items]);field.value="";msg("已添加 @"+p+" 到本机关注者名单。");
+}
+
 function setStatus(t){$("status").textContent=t}
 function stop(){clearInterval(tick);tick=null;$("clip").pause();if(activeUrl){URL.revokeObjectURL(activeUrl);activeUrl=null}}
 function hideStage(){stop();$("stage").style.display="none";$("empty").classList.remove("hidden")}
@@ -349,6 +378,7 @@ async function lookupMediaList(kind){
 }
 $("loadProfile").onclick=loadProfile;$("searchProfiles").onclick=searchProfiles;$("loadTrendingReels").onclick=loadTrendingReels;$("searchHashtags").onclick=searchHashtags;$("hashtagQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchHashtags()});$("profileSearchQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchProfiles()});$("loadComments").onclick=()=>lookupMediaList("comments");$("loadLikers").onclick=()=>lookupMediaList("likers");
 $("loadFollowers").onclick=()=>loadFollowers(true);$("moreFollowers").onclick=()=>loadFollowers(false);
+$("addFollower").onclick=addManualFollower;$("manualFollowerInput").addEventListener("keydown",e=>{if(e.key==="Enter")addManualFollower()});renderManualFollowers();
 
 status();
 </script>
