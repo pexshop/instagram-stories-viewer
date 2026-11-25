@@ -155,6 +155,20 @@ header{
 .embed-item{background:rgba(255,255,255,.92)!important}
 .media-modal-card{background:rgba(8,10,18,.9)!important}
 
+
+/* Top navigation: every existing tool has a direct jump target. */
+.tool-top-nav{position:sticky;top:58px;z-index:9;display:flex;align-items:center;gap:7px;padding:9px max(14px,calc((100vw - 1080px)/2));overflow-x:auto;overscroll-behavior-x:contain;white-space:nowrap;background:rgba(8,10,18,.88);border-bottom:1px solid rgba(190,210,255,.18);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);scrollbar-width:thin}
+.tool-top-nav a{flex:none;display:inline-flex;align-items:center;min-height:34px;padding:7px 12px;border:1px solid rgba(210,220,255,.2);border-radius:999px;color:#f3f5ff;text-decoration:none;font-size:12px;font-weight:650;background:rgba(255,255,255,.08)}
+.tool-top-nav a:first-child,.tool-top-nav a:nth-child(2),.tool-top-nav a:nth-child(3){background:rgba(116,91,220,.28);border-color:rgba(180,160,255,.42)}
+.tool-top-nav a:active{background:rgba(150,125,255,.42)}
+html{scroll-behavior:smooth;scroll-padding-top:116px}
+#homeSection,#profileSection,#manualFollowersBox,#loadStories,#loadHighlights,#loadPosts,#loadReels,#playHighlight,#searchProfiles,#loadTrendingReels,#searchHashtags,#loadComments,#loadLikers,#settingsTop{scroll-margin-top:120px}
+@media(max-width:760px){
+ .tool-top-nav{top:58px;padding:8px 10px;gap:6px}
+ .tool-top-nav a{min-height:36px;padding:8px 11px;font-size:12px}
+ html{scroll-padding-top:112px}
+}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
 </style></head><body>
 <div id="spacePhoto" aria-hidden="true"></div>
 <div id="galaxyPhoto" aria-hidden="true"></div>
@@ -163,7 +177,13 @@ header{
 <div id="ambientText" aria-hidden="true"><div class="ambient-stage"><span id="ambientTextLine" data-text="THE UNIVERSE IS STILL IN MOTION">THE UNIVERSE IS STILL IN MOTION</span><span id="ambientMarquee">BEYOND THE HORIZON · THROUGH THE SILENCE · INTO THE UNKNOWN · </span></div></div>
 <canvas id="textParticles" aria-hidden="true"></canvas>
 <header><div class="logo">Instagram <span>浏览器</span></div><div class="status" id="status">正在检查连接…</div></header>
-<main><section class="hero"><h1>浏览公开 Instagram 内容</h1><div class="sub">输入用户名，查看快拍、帖子、Reels 和主页资料。</div></section>
+<nav class="tool-top-nav" id="toolTopNav" aria-label="网站工具导航">
+ <a href="#homeSection">首页</a><a href="#profileSection">主页</a><a href="#manualFollowersBox">关注者</a>
+ <a href="#loadStories">快拍</a><a href="#loadHighlights">精选</a><a href="#loadPosts">帖子</a><a href="#loadReels">Reels</a>
+ <a href="#playHighlight">播放精选</a><a href="#searchProfiles">搜索账号</a><a href="#loadTrendingReels">热门 Reels</a>
+ <a href="#searchHashtags">话题搜索</a><a href="#loadComments">评论</a><a href="#loadLikers">点赞者</a><a href="#settingsTop">播放设置</a>
+</nav>
+<main><section class="hero" id="homeSection"><h1>浏览公开 Instagram 内容</h1><div class="sub">输入用户名，查看快拍、帖子、Reels 和主页资料。</div></section>
 <div class="notice">数据来自第三方公开数据服务。无需 Instagram 登录；仅支持可公开访问的内容。API 密钥保存在服务器端，服务可能有使用额度或费用。</div>
 <div class="layout"><section class="viewer"><div class="empty" id="empty"><div class="symbol">◉</div><b>准备浏览快拍</b><div>输入公开 Instagram 用户名即可浏览可访问的快拍、精选、帖子和 Reels</div></div>
 <div class="stage" id="stage"><div class="bars" id="bars"></div><div class="who"><div class="avatar" id="avatar">IG</div><div><strong id="username">@instagram</strong><small id="storytime">快拍</small></div></div><img id="photo" alt="Instagram story" class="hidden"><video id="clip" playsinline class="hidden"></video><button class="nav prev" id="prev" aria-label="上一条"></button><button class="nav next" id="next" aria-label="下一条"></button><div class="controls"><button class="glass" id="pause">暂停</button><button class="glass" id="fullscreen">全屏</button><button class="glass" id="close">关闭</button></div></div></section>
@@ -176,9 +196,9 @@ header{
 <div class="row"><button class="secondary" id="loadHighlights">精选</button><button class="secondary" id="loadPosts">帖子</button><button class="secondary" id="loadReels">Reels</button></div>
 <label class="field" for="highlights">选择一个精选合集</label><select id="highlights"><option value="">先加载精选快拍</option></select>
 <button class="secondary" id="playHighlight">播放精选</button>
-<details class="settings-more"><summary>播放设置</summary><label class="field" for="duration">图片播放时长</label><select id="duration"><option value="5000">5 秒</option><option value="7000" selected>7 秒</option><option value="10000">10 秒</option><option value="15000">15 秒</option></select><label class="field"><input type="checkbox" id="loop" checked> 自动循环播放</label></details>
+<details class="settings-more" id="settingsTop"><summary>播放设置</summary><label class="field" for="duration">图片播放时长</label><select id="duration"><option value="5000">5 秒</option><option value="7000" selected>7 秒</option><option value="10000">10 秒</option><option value="15000">15 秒</option></select><label class="field"><input type="checkbox" id="loop" checked> 自动循环播放</label></details>
 <div id="message" class="err"></div><p class="small">仅限公开可访问内容。私密账号、已过期快拍或受限制内容不会返回。第三方服务可能收费、限流，媒体链接也可能过期。</p></aside></div>
-<section class="profile-view"><h2 style="margin:0 0 8px;font-size:18px">2. 主页资料</h2><p style="color:#707580;font-size:13px;line-height:1.6">查看账号简介、粉丝数据和最近发布的内容。</p><button class="primary" id="loadProfile" type="button">查看主页</button><div id="profileResult"></div><div class="profile-note">仅显示第三方 API 能获取的公开资料。私密内容不可查看；图片和视频地址可能过期。点击帖子可在本站预览。</div></section>
+<section class="profile-view" id="profileSection"><h2 style="margin:0 0 8px;font-size:18px">2. 主页资料</h2><p style="color:#707580;font-size:13px;line-height:1.6">查看账号简介、粉丝数据和最近发布的内容。</p><button class="primary" id="loadProfile" type="button">查看主页</button><div id="profileResult"></div><div class="profile-note">仅显示第三方 API 能获取的公开资料。私密内容不可查看；图片和视频地址可能过期。点击帖子可在本站预览。</div></section>
 <details class="profile-view simple-more"><summary>更多工具</summary><p class="more-intro">不常用的功能放在这里，需要时再展开。</p><div class="more-inner">
 <h2 style="margin:0 0 8px;font-size:18px">搜索公开账号</h2>
 <p style="color:#aaa;font-size:13px;line-height:1.6">输入名称或关键词，查找公开账号。</p>
