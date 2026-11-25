@@ -17,6 +17,17 @@ button{font:inherit;cursor:pointer;border:0;border-radius:11px;padding:12px 16px
 .status{font-size:12px;color:#a8b3bd;margin-top:14px;min-height:20px}.status.error{color:#ff9da9}
 footer{color:#77838e;font-size:11px;line-height:1.6;text-align:center;margin-top:18px}
 @media(max-width:480px){main{padding-top:18px}.card{padding:17px}.buttons{grid-template-columns:1fr}}
+
+#playerDock{position:fixed;z-index:9999;right:12px;bottom:calc(12px + env(safe-area-inset-bottom));width:min(420px,calc(100vw - 24px));background:#101820f2;border:1px solid #ffffff38;border-radius:15px;box-shadow:0 12px 42px #0009;overflow:hidden;backdrop-filter:blur(18px)}
+#dockBar{height:42px;display:flex;align-items:center;justify-content:space-between;padding:0 10px 0 14px;gap:10px;background:#17221f;color:#eaf8ef;font-size:12px;font-weight:700}
+#dockBar button{padding:6px 10px;border-radius:8px;font-size:12px}
+#playerDock .embed{margin:0;border-radius:0;min-height:0;background:#000}
+#playerDock .embed iframe{display:block}
+#playerDock.minimized{width:min(250px,calc(100vw - 24px));height:62px}
+#playerDock.minimized .embed{height:20px;min-height:0;overflow:hidden;opacity:.01;pointer-events:none}
+#playerDock.minimized .embed iframe{height:152px!important}
+@media(max-width:480px){#playerDock:not(.minimized){width:calc(100vw - 20px);right:10px;bottom:calc(10px + env(safe-area-inset-bottom))}}
+
 </style>
 </head>
 <body>
@@ -33,6 +44,7 @@ footer{color:#77838e;font-size:11px;line-height:1.6;text-align:center;margin-top
 <button id="resume" class="secondary">恢复上次播放器</button>
 </div>
 <div class="embed" id="embed" hidden></div>
+<div id="playerDock" hidden><div id="dockBar"><span>♫ Spotify 正在播放 / 播放器</span><button id="dockToggle" class="secondary" type="button">缩小</button></div></div>
 <div class="muted" style="margin-top:20px">随机播放列表（可选）</div>
 <div class="muted">每行粘贴一个 Spotify 歌曲链接，点击随机选择后载入对应歌曲。</div>
 <textarea id="playlistLinks" placeholder="每行一个链接&#10;https://open.spotify.com/track/..."></textarea>
@@ -45,7 +57,7 @@ footer{color:#77838e;font-size:11px;line-height:1.6;text-align:center;margin-top
 <script>
 (function(){
 "use strict";
-const $=id=>document.getElementById(id);let last="";const STORE_KEY="spotify_embed_player_state_v1";const LIST_KEY="spotify_embed_saved_list_v1";
+const $=id=>document.getElementById(id);let last="";const STORE_KEY="spotify_embed_player_state_v1";const LIST_KEY="spotify_embed_saved_list_v1";const DOCK_KEY="spotify_embed_dock_minimized_v1";
 function say(s,error){$("status").textContent=s;$("status").className="status"+(error?" error":"");}
 function parseLink(raw){
  const value=raw.trim();if(!value)throw new Error("请先粘贴 Spotify 链接。");
@@ -70,9 +82,11 @@ function load(raw,quiet){
  frame.allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture";
  frame.loading="lazy";frame.referrerPolicy="strict-origin-when-cross-origin";
  const host=$("embed");host.replaceChildren(frame);host.hidden=false;
- if(!quiet)say("已载入 Spotify 官方播放器。请点击播放器中的播放按钮。");
+ const dock=$("playerDock");if(host.parentElement!==dock)dock.appendChild(host);dock.hidden=false;dock.classList.toggle("minimized",localStorage.getItem(DOCK_KEY)==="1");$("dockToggle").textContent=dock.classList.contains("minimized")?"展开":"缩小";
+ if(!quiet)say("播放器已载入悬浮窗口。缩小窗口不会主动卸载播放器；iPhone 仍可能限制后台播放。");
 }
 $("load").addEventListener("click",()=>{try{load($("spotifyLink").value);}catch(e){say(e.message,true);}});
+$("dockToggle").addEventListener("click",()=>{const dock=$("playerDock");dock.classList.toggle("minimized");const small=dock.classList.contains("minimized");$("dockToggle").textContent=small?"展开":"缩小";try{localStorage.setItem(DOCK_KEY,small?"1":"0");}catch(e){}});
 $("resume").addEventListener("click",()=>{try{const raw=$("spotifyLink").value.trim();if(!raw)throw new Error("没有保存的歌曲链接，请重新粘贴 Spotify 链接。");load(raw);say("播放器已重新载入。请手动点击播放；iPhone 返回浏览器后可能需要重新开始播放。");}catch(e){say(e.message,true);}});
 function savePlaylist(){try{const value=$("playlistLinks").value;localStorage.setItem(LIST_KEY,value);localStorage.setItem(STORE_KEY,JSON.stringify({link:$("spotifyLink").value,playlist:value}));}catch(e){}}
 $("playlistLinks").addEventListener("input",savePlaylist);
@@ -94,7 +108,7 @@ $("random").addEventListener("click",()=>{
  const chosen=choices[Math.floor(Math.random()*choices.length)];
  try{$("spotifyLink").value=chosen;load(chosen);say("已随机选择一首。点击播放器开始播放。");}catch(e){say(e.message,true);}
 });
-$("clear").addEventListener("click",()=>{$("embed").replaceChildren();$("embed").hidden=true;$("spotifyLink").value="";last="";try{localStorage.removeItem(STORE_KEY);localStorage.removeItem(LIST_KEY);}catch(e){}say("播放器和已保存歌曲列表已清空。");});
+$("clear").addEventListener("click",()=>{$("embed").replaceChildren();$("embed").hidden=true;$("playerDock").hidden=true;$("spotifyLink").value="";last="";try{localStorage.removeItem(STORE_KEY);localStorage.removeItem(LIST_KEY);localStorage.removeItem(DOCK_KEY);}catch(e){}say("播放器和已保存歌曲列表已清空。");});
 })();
 </script>
 </body></html>
