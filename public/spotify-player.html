@@ -44,7 +44,7 @@ footer{color:#77838e;font-size:11px;line-height:1.6;text-align:center;margin-top
 <button id="resume" class="secondary">恢复上次播放器</button>
 </div>
 <div class="embed" id="embed" hidden></div>
-<div id="playerDock" hidden><div id="dockBar"><span>♫ Spotify 正在播放 / 播放器</span><button id="dockToggle" class="secondary" type="button">缩小</button></div></div>
+<div id="playerDock" hidden><div id="dockBar"><span>♫ Spotify 正在播放 / 播放器</span><div style="display:flex;gap:6px"><button id="dockToggle" class="secondary" type="button">缩小</button><button id="dockClose" class="secondary" type="button" aria-label="关闭播放器窗口">关闭</button></div></div></div>
 <div class="muted" style="margin-top:20px">随机播放列表（可选）</div>
 <div class="muted">每行粘贴一个 Spotify 歌曲链接，点击随机选择后载入对应歌曲。</div>
 <textarea id="playlistLinks" placeholder="每行一个链接&#10;https://open.spotify.com/track/..."></textarea>
@@ -87,7 +87,8 @@ function load(raw,quiet){
 }
 $("load").addEventListener("click",()=>{try{load($("spotifyLink").value);}catch(e){say(e.message,true);}});
 $("dockToggle").addEventListener("click",()=>{const dock=$("playerDock");dock.classList.toggle("minimized");const small=dock.classList.contains("minimized");$("dockToggle").textContent=small?"展开":"缩小";try{localStorage.setItem(DOCK_KEY,small?"1":"0");}catch(e){}});
-$("resume").addEventListener("click",()=>{try{const raw=$("spotifyLink").value.trim();if(!raw)throw new Error("没有保存的歌曲链接，请重新粘贴 Spotify 链接。");load(raw);say("播放器已重新载入。请手动点击播放；iPhone 返回浏览器后可能需要重新开始播放。");}catch(e){say(e.message,true);}});
+$("dockClose").addEventListener("click",()=>{const dock=$("playerDock");dock.hidden=true;say("播放器窗口已关闭；歌曲和播放列表仍会保留。返回此页面或点击“恢复上次播放器”即可重新显示。");});
+$("resume").addEventListener("click",()=>{try{const dock=$("playerDock");const frame=$("embed").querySelector("iframe");if(frame){dock.hidden=false;$("embed").hidden=false;dock.classList.toggle("minimized",localStorage.getItem(DOCK_KEY)==="1");$("dockToggle").textContent=dock.classList.contains("minimized")?"展开":"缩小";say("已重新显示原播放器，没有重新载入歌曲。若音频已停止，请点击 Spotify 播放按钮。");return;}const raw=$("spotifyLink").value.trim()||(JSON.parse(localStorage.getItem(STORE_KEY)||"null")||{}).link;if(!raw)throw new Error("没有保存的歌曲链接，请先粘贴 Spotify 链接。");$("spotifyLink").value=raw;load(raw);say("已恢复上次歌曲。请手动点击播放。");}catch(e){say(e.message,true);}});
 function savePlaylist(){try{const value=$("playlistLinks").value;localStorage.setItem(LIST_KEY,value);localStorage.setItem(STORE_KEY,JSON.stringify({link:$("spotifyLink").value,playlist:value}));}catch(e){}}
 $("playlistLinks").addEventListener("input",savePlaylist);
 $("playlistLinks").addEventListener("change",savePlaylist);
