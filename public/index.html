@@ -235,8 +235,6 @@ input:not([type=checkbox]),select,.embed-form input{
 <aside class="panel"><h2>1. 输入账号</h2><p>填写用户名后，选择要查看的内容。</p>
 <label class="field" for="profile">Instagram 用户名</label><input id="profile" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="例如 nasa" style="width:100%;background:#09090d;border:1px solid #ffffff26;color:#fff;padding:12px;border-radius:10px">
 <a id="profileUrl" class="small" href="#" target="_blank" rel="noopener noreferrer" style="display:none;color:#c6a5ff;text-decoration:underline;overflow-wrap:anywhere;margin-top:9px">打开 Instagram 主页</a>
-<details class="history-more"><summary>最近浏览记录</summary><div class="row" style="align-items:center;justify-content:space-between"><span class="small">最多保存 20 个账号</span><button class="secondary" id="clearProfileHistory" type="button">清空</button></div><div id="profileHistory" class="small" style="display:grid;gap:8px;margin-top:10px">暂无记录</div></details>
-<div class="followers-box" id="manualFollowersBox"><div class="followers-head"><h3>我的关注者名单</h3><span class="followers-count" id="manualFollowersCount">0 位</span></div><p class="profile-note">手动保存 Instagram 用户名，方便管理和打开主页。此名单仅保存在当前浏览器，不会改变 Instagram 的真实关注关系。</p><div class="embed-form"><input id="manualFollowerInput" type="text" maxlength="30" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="输入 Instagram 用户名"><button class="primary" id="addFollower" type="button" style="width:auto;min-width:105px">＋ 添加</button></div><div id="manualFollowersList" class="followers-list"></div></div>
 <button class="primary" id="loadStories" style="margin-top:10px">查看快拍</button>
 <div class="row"><button class="secondary" id="loadHighlights">精选</button><button class="secondary" id="loadPosts">帖子</button><button class="secondary" id="loadReels">Reels</button></div>
 <label class="field" for="highlights">选择一个精选合集</label><select id="highlights"><option value="">先加载精选快拍</option></select>
@@ -275,100 +273,8 @@ function profileValue(){return $("profile").value.trim().replace(/^@/,"")}
 const PROFILE_HISTORY_KEY="ig_profile_history_v1";
 function readProfileHistory(){try{const v=JSON.parse(localStorage.getItem(PROFILE_HISTORY_KEY)||"[]");return Array.isArray(v)?v.filter(x=>typeof x==="string"&&/^[A-Za-z0-9._]{1,30}$/.test(x)):[]}catch{return[]}}
 function renderProfileHistory(){const box=$("profileHistory"),count=$("historyCount");if(!box)return;const items=readProfileHistory();if(count)count.textContent=items.length+" 个账号";box.replaceChildren();if(!items.length){const empty=document.createElement("p");empty.className="profile-note";empty.textContent="暂无观看记录。输入账号并查看内容后，会自动显示在这里。";box.append(empty);return}items.forEach(p=>{const row=document.createElement("article");row.className="feed-account";row.style.cssText="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap";const name=document.createElement("strong");name.textContent="@"+p;name.style.cssText="color:#e8ddff;flex:1";const view=document.createElement("button");view.type="button";view.className="secondary";view.textContent="再次查看";view.addEventListener("click",()=>{$("profile").value=p;syncProfileUrl();loadStories();$("profileSection").scrollIntoView({behavior:"smooth",block:"start"})});const open=document.createElement("a");open.href="https://www.instagram.com/"+encodeURIComponent(p)+"/";open.target="_blank";open.rel="noopener noreferrer";open.className="secondary";open.textContent="Instagram 主页";open.style.cssText="text-decoration:none";row.append(name,view,open);box.append(row)})}
-function rememberProfile(value=profileValue()){const p=value.trim().replace(/^@/,"");if(!/^[A-Za-z0-9._]{1,30}$/.test(p))return;try{const items=[p,...readProfileHistory().filter(x=>x.toLowerCase()!==p.toLowerCase())].slice(0,20);localStorage.setItem(PROFILE_HISTORY_KEY,JSON.stringify(items));renderProfileHistory()}catch{const box=$("profileHistory");if(box)box.textContent="浏览器存储不可用，无法保存记录"}}
+function rememberProfile(value=profileValue()){const p=value.trim().replace(/^@/,"");if(!/^[A-Za-z0-9._]{1,30}$/.test(p))return;try{const items=[p,...readProfileHistory().filter(x=>x.toLowerCase()!==p.toLowerCase())];localStorage.setItem(PROFILE_HISTORY_KEY,JSON.stringify(items));renderProfileHistory()}catch{const box=$("profileHistory");if(box)box.textContent="浏览器存储不可用，无法保存记录"}}
 function syncProfileUrl(){const p=profileValue(),a=$("profileUrl");if(/^[A-Za-z0-9._]{1,30}$/.test(p)){a.href="https://www.instagram.com/"+encodeURIComponent(p)+"/";a.textContent="打开 Instagram 主页 · @"+p;a.style.display="block"}else{a.removeAttribute("href");a.style.display="none"}}
-const MANUAL_FOLLOWERS_KEY="ig_manual_followers_v1";
-function readManualFollowers(){try{const v=JSON.parse(localStorage.getItem(MANUAL_FOLLOWERS_KEY)||"[]");return Array.isArray(v)?v.filter(x=>typeof x==="string"&&/^[A-Za-z0-9._]{1,30}$/.test(x)):[]}catch{return[]}}
-function renderManualFollowers(){
- const box=$("manualFollowersList"),count=$("manualFollowersCount");if(!box||!count)return;
- const items=readManualFollowers();count.textContent=items.length+" 位";box.replaceChildren();
- if(!items.length){const empty=document.createElement("div");empty.className="profile-note";empty.textContent="还没有添加账号。";box.append(empty);return}
- items.forEach(p=>{
-  const row=document.createElement("div");row.className="follower-card";
-  const info=document.createElement("div");info.style.cssText="min-width:0;flex:1";
-  const name=document.createElement("div");name.className="follower-name";name.textContent="@"+p;
-  const note=document.createElement("div");note.className="follower-handle";note.textContent="已保存的用户名";
-  info.append(name,note);
-  const open=document.createElement("a");open.href="https://www.instagram.com/"+encodeURIComponent(p)+"/";open.target="_blank";open.rel="noopener noreferrer";open.className="secondary";open.textContent="打开";
-  open.style.cssText="text-decoration:none;white-space:nowrap";
-  const remove=document.createElement("button");remove.type="button";remove.className="secondary";remove.textContent="删除";remove.addEventListener("click",()=>{saveManualFollowers(readManualFollowers().filter(x=>x.toLowerCase()!==p.toLowerCase()))});
-  row.append(info,open,remove);box.append(row);
- });
-}
-function saveManualFollowers(items){
- try{
-  const clean=items.filter(x=>typeof x==="string"&&/^[A-Za-z0-9._]{1,30}$/.test(x));
-  localStorage.setItem(MANUAL_FOLLOWERS_KEY,JSON.stringify(clean));
-  const check=JSON.parse(localStorage.getItem(MANUAL_FOLLOWERS_KEY)||"null");
-  if(!Array.isArray(check)||check.length!==clean.length)throw new Error("保存校验失败");
-  renderManualFollowers();
-  return true;
- }catch(e){
-  msg("保存失败：Safari 当前浏览模式可能禁止本地存储。请退出无痕浏览，或允许网站使用网站数据后重试。");
-  return false;
- }
-}
-
-let followerFeedOffset=0,followerFeedBusy=false;
-const FOLLOWER_FEED_BATCH=20;
-function renderFollowerFeedProgress(){const total=readManualFollowers().length;const p=$("feedProgress");if(p)p.textContent=Math.min(followerFeedOffset,total)+" / "+total+" 个账号"}
-function makeFeedAccountCard(handle,items){
- const card=document.createElement("article");card.className="feed-account";
- const head=document.createElement("div");head.className="feed-account-head";
- const profile=document.createElement("a");profile.href="https://www.instagram.com/"+encodeURIComponent(handle)+"/";profile.target="_blank";profile.rel="noopener noreferrer";profile.textContent="@"+handle;
- const count=document.createElement("span");count.className="followers-count";count.textContent=items.length+" 条帖子";head.append(profile,count);card.append(head);
- const grid=document.createElement("div");grid.className="feed-media-grid";
- items.forEach((item,i)=>{const b=document.createElement("button");b.type="button";b.className="feed-media";const im=document.createElement("img");im.loading="lazy";im.src=item.thumbnail_url||item.media_url||"";im.alt=item.caption||"Instagram 帖子";b.append(im);if(item.media_type==="VIDEO"){const tag=document.createElement("span");tag.textContent="▶ 视频";b.append(tag)}b.addEventListener("click",()=>openMediaModal(items,i,handle));grid.append(b)});
- card.append(grid);
- const latest=items[0];if(latest?.caption){const caption=document.createElement("div");caption.className="feed-caption";caption.textContent=latest.caption;card.append(caption)}
- if(latest?.timestamp){const time=document.createElement("div");time.className="feed-time";const d=new Date(latest.timestamp);time.textContent=Number.isNaN(d.getTime())?String(latest.timestamp):d.toLocaleString();card.append(time)}
- return card;
-}
-async function loadFollowerFeed(reset=false){
- if(followerFeedBusy)return;
- const users=readManualFollowers(),list=$("followerFeedList"),statusBox=$("feedStatus"),button=$("loadFollowerFeed");
- if(reset){followerFeedOffset=0;list.replaceChildren();statusBox.textContent="已重置动态列表。"}
- if(!users.length){statusBox.textContent="关注者名单为空。请先添加 Instagram 用户名；系统不会自动读取你的 Instagram 登录关系。";renderFollowerFeedProgress();return}
- if(followerFeedOffset>=users.length){statusBox.textContent="名单中的账号已全部处理。点击「重新加载」可再次获取最新帖子。";renderFollowerFeedProgress();return}
- const batch=users.slice(followerFeedOffset,followerFeedOffset+FOLLOWER_FEED_BATCH);
- followerFeedBusy=true;button.disabled=true;$("resetFollowerFeed").disabled=true;
- let completed=0,credits=0,errors=0;
- statusBox.textContent="正在读取 "+batch.length+" 个账号的公开帖子…";
- try{
-  const results=[];
-  for(let i=0;i<batch.length;i+=4){
-   const chunk=batch.slice(i,i+4);
-   const part=await Promise.all(chunk.map(async handle=>{
-    try{const d=await api("/api/media?username="+encodeURIComponent(handle)+"&tab=posts");return {handle,items:d.media||[],credits:d.creditsCharged||0,error:null}}
-    catch(e){return {handle,items:[],credits:0,error:e.message}}
-   }));
-   results.push(...part);completed+=part.length;
-   statusBox.textContent="已处理 "+completed+" / "+batch.length+" 个账号…";
-  }
-  results.sort((a,b)=>{const ta=Date.parse(a.items[0]?.timestamp||"")||0,tb=Date.parse(b.items[0]?.timestamp||"")||0;return tb-ta});
-  results.forEach(r=>{credits+=Number(r.credits)||0;if(r.error){errors++;const el=document.createElement("div");el.className="feed-account";el.textContent="@"+r.handle+"：读取失败 — "+r.error;list.append(el)}else if(r.items.length){list.append(makeFeedAccountCard(r.handle,r.items.slice(0,9)))}else{const el=document.createElement("div");el.className="feed-account";el.textContent="@"+r.handle+"：没有返回公开帖子";list.append(el)}});
-  followerFeedOffset+=batch.length;renderFollowerFeedProgress();
-  const remain=Math.max(0,users.length-followerFeedOffset);
-  statusBox.textContent="本批完成："+batch.length+" 个账号，"+(batch.length-errors)+" 个成功，"+errors+" 个失败；返回 "+results.reduce((n,r)=>n+r.items.length,0)+" 条帖子。API credits："+(credits||"未提供")+"。"+(remain?" 还有 "+remain+" 个账号，点击按钮继续。":" 已处理完名单中的账号。");
-  button.textContent=remain?"加载下一批帖子":"已加载全部账号";
- }finally{followerFeedBusy=false;button.disabled=followerFeedOffset>=users.length;$("resetFollowerFeed").disabled=false}
-}
-
-function addManualFollower(){
- const field=$("manualFollowerInput");
- if(!field){msg("找不到用户名输入框，请刷新页面后重试。");return}
- let raw=field.value.trim();
-  const urlMatch=raw.match(/(?:https?:\/\/)?(?:www\.)?instagram\.com\/([^/?#]+)/i);
- const p=(urlMatch?urlMatch[1]:raw).replace(/^@/,"").trim();
- if(!/^[A-Za-z0-9._]{1,30}$/.test(p)){msg("请输入有效用户名，例如 nasa 或 @nasa，也可以粘贴 Instagram 主页链接。");field.focus();return}
- const items=readManualFollowers();
- if(items.some(x=>x.toLowerCase()===p.toLowerCase())){msg("@" + p + " 已经在名单中。");return}
- if(items.length>=500){msg("名单最多保存 500 个账号。");return}
- if(!saveManualFollowers([p,...items]))return;
- field.value="";
- msg("添加成功：@" + p + "，已保存到当前 iPhone 浏览器。");
-}
-
 function setStatus(t){$("status").textContent=t}
 function stop(){clearInterval(tick);tick=null;$("clip").pause();if(activeUrl){URL.revokeObjectURL(activeUrl);activeUrl=null}}
 function hideStage(){stop();$("stage").style.display="none";$("empty").classList.remove("hidden")}
@@ -382,7 +288,7 @@ async function loadHighlights(){const p=profileValue();if(!p){msg("请先输入 
 async function playHighlight(){const id=$("highlights").value;if(!id){msg("请先加载并选择一个精选合集。");return}try{msg("正在加载精选快拍…");const d=await api("/api/highlight?id="+encodeURIComponent(id));loadList(d.stories,"精选快拍")}catch(e){msg(e.message)}}
 async function loadMedia(tab){const p=profileValue();if(!p){msg("请先输入 Instagram 用户名。");return}rememberProfile(p);currentProfile=p;try{msg("正在读取"+(tab==="reels"?"Reels":"帖子")+"…");const d=await api("/api/media?username="+encodeURIComponent(p)+"&tab="+tab);loadList(d.media,tab==="reels"?"Reels":"帖子")}catch(e){msg(e.message)}}
 async function status(){try{const d=await api("/api/status");setStatus(d.apiKeyConfigured?"API 密钥已配置 · 连接待验证":"等待配置第三方 API");if(!d.apiKeyConfigured)msg("尚未配置 SOCIALFETCH_API_KEY。请在 Cloudflare Pages → Settings → Variables and Secrets 添加加密 Secret。")}catch(e){setStatus("API 状态读取失败");msg(e.message)}}
-$("loadFollowerFeed").onclick=()=>loadFollowerFeed(false);$("resetFollowerFeed").onclick=()=>{ $("loadFollowerFeed").textContent="加载关注者帖子";loadFollowerFeed(true)};$("loadStories").onclick=loadStories;$("loadHighlights").onclick=loadHighlights;$("playHighlight").onclick=playHighlight;$("loadPosts").onclick=()=>loadMedia("posts");$("loadReels").onclick=()=>loadMedia("reels");$("profile").addEventListener("input",syncProfileUrl);$("profile").addEventListener("keydown",e=>{if(e.key==="Enter")loadStories()});$("profileUrl").addEventListener("click",()=>rememberProfile());$("clearProfileHistory").onclick=()=>{try{localStorage.removeItem(PROFILE_HISTORY_KEY)}catch{}renderProfileHistory()};syncProfileUrl();renderProfileHistory();
+$("loadStories").onclick=loadStories;$("loadHighlights").onclick=loadHighlights;$("playHighlight").onclick=playHighlight;$("loadPosts").onclick=()=>loadMedia("posts");$("loadReels").onclick=()=>loadMedia("reels");$("profile").addEventListener("input",syncProfileUrl);$("profile").addEventListener("keydown",e=>{if(e.key==="Enter")loadStories()});$("profileUrl").addEventListener("click",()=>rememberProfile());$("clearProfileHistory").onclick=()=>{try{localStorage.removeItem(PROFILE_HISTORY_KEY)}catch{}renderProfileHistory()};syncProfileUrl();renderProfileHistory();
 $("next").onclick=next;$("prev").onclick=prev;$("close").onclick=hideStage;
 $("pause").onclick=()=>{paused=!paused;$("pause").textContent=paused?"继续":"暂停";if(paused){elapsedBeforePause+=Date.now()-startAt;clearInterval(tick);$("clip").pause()}else{$("clip").play().catch(()=>{});begin()}};
 $("duration").onchange=()=>{if(stories[index]&&stories[index].media_type!=="VIDEO"){elapsedBeforePause=0;begin()}};
@@ -507,10 +413,7 @@ async function lookupMediaList(kind){
 }
 $("loadProfile").onclick=loadProfile;$("searchProfiles").onclick=searchProfiles;$("loadTrendingReels").onclick=loadTrendingReels;$("searchHashtags").onclick=searchHashtags;$("hashtagQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchHashtags()});$("profileSearchQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchProfiles()});$("loadComments").onclick=()=>lookupMediaList("comments");$("loadLikers").onclick=()=>lookupMediaList("likers");
 $("loadFollowers").onclick=()=>loadFollowers(true);$("moreFollowers").onclick=()=>loadFollowers(false);
-const addFollowerButton=$("addFollower"),manualFollowerField=$("manualFollowerInput");
-if(addFollowerButton)addFollowerButton.addEventListener("click",addManualFollower);
-if(manualFollowerField)manualFollowerField.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addManualFollower()}});
-renderManualFollowers();
+
 
 status();
 </script>
