@@ -8,7 +8,7 @@
 
 .embed-card{margin-top:22px;background:#15151a;border:1px solid #ffffff1c;border-radius:18px;padding:18px}.embed-card h2{font-size:18px;margin:0 0 8px}.embed-card p{font-size:13px;color:#aaa;line-height:1.6}.embed-form{display:flex;gap:8px;flex-wrap:wrap}.embed-form input{flex:1;min-width:210px;background:#09090d;border:1px solid #ffffff28;border-radius:10px;padding:12px;color:#fff}.embed-output{margin-top:16px;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px;align-items:start}.embed-item{background:#fff;border-radius:12px;min-width:0;overflow:hidden}.embed-item blockquote{margin:0!important;max-width:100%!important}.profile-link{display:block;color:#fff;text-decoration:none;background:#24212b;border:1px solid #ffffff20;border-radius:12px;padding:16px;overflow-wrap:anywhere}.profile-link small{display:block;color:#aaa;margin-top:6px}@media(max-width:600px){.embed-card{padding:14px}.embed-form{display:grid}.embed-form button{width:100%}}
 
-.profile-view{margin-top:22px;background:#15151a;border:1px solid #ffffff1c;border-radius:18px;padding:18px}.profile-head{display:flex;gap:14px;align-items:flex-start}.profile-head img{width:76px;height:76px;object-fit:cover;border-radius:50%;background:#29242f}.profile-name{font-weight:800;font-size:18px}.profile-handle,.profile-meta{color:#aaa;font-size:12px;margin-top:5px}.profile-bio{white-space:pre-wrap;color:#ddd;font-size:13px;line-height:1.6;margin:14px 0}.profile-stats{display:flex;gap:18px;flex-wrap:wrap;color:#ddd;font-size:12px}.profile-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:16px}.profile-tile{aspect-ratio:1;border:0;padding:0;background:#24242a;overflow:hidden;position:relative;cursor:pointer}.profile-tile img{width:100%;height:100%;object-fit:cover}.profile-tile span{position:absolute;bottom:5px;right:5px;background:#0009;border-radius:5px;padding:3px 5px;font-size:10px}.profile-note{color:#999;font-size:12px;line-height:1.5;margin-top:12px}@media(max-width:600px){.profile-view{padding:14px}}
+.profile-view{margin-top:22px;background:#15151a;border:1px solid #ffffff1c;border-radius:18px;padding:18px}.profile-head{display:flex;gap:14px;align-items:flex-start}.profile-head img{width:76px;height:76px;object-fit:cover;border-radius:50%;background:#29242f}.profile-name{font-weight:800;font-size:18px}.profile-handle,.profile-meta{color:#aaa;font-size:12px;margin-top:5px}.profile-bio{white-space:pre-wrap;color:#ddd;font-size:13px;line-height:1.6;margin:14px 0}.profile-stats{display:flex;gap:18px;flex-wrap:wrap;color:#ddd;font-size:12px}.profile-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:5px;margin-top:16px}.profile-tile{aspect-ratio:1;border:0;padding:0;background:#24242a;overflow:hidden;position:relative;cursor:pointer}.profile-tile img{width:100%;height:100%;object-fit:cover}.profile-tile span{position:absolute;bottom:5px;right:5px;background:#0009;border-radius:5px;padding:3px 5px;font-size:10px}.profile-note{color:#999;font-size:12px;line-height:1.5;margin-top:12px}.followers-box{margin-top:18px;border-top:1px solid #ffffff18;padding-top:16px}.followers-head{display:flex;justify-content:space-between;align-items:center;gap:8px}.followers-head h3{font-size:16px;margin:0}.followers-count{font-size:11px;color:#aaa}.followers-list{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:8px;margin-top:12px}.follower-card{display:flex;gap:10px;align-items:center;background:#ffffff08;border:1px solid #ffffff14;border-radius:10px;padding:9px;min-width:0}.follower-card img{width:38px;height:38px;border-radius:50%;object-fit:cover;background:#333;flex:none}.follower-name{font-size:12px;font-weight:700;overflow-wrap:anywhere}.follower-handle{font-size:11px;color:#aaa;margin-top:3px;overflow-wrap:anywhere}.follower-verified{color:#8eb6ff}.followers-more{margin-top:12px}@media(max-width:600px){.profile-view{padding:14px}}
 </style></head><body>
 <header><div class="logo">stories <span>viewer</span></div><div class="status" id="status">尚未连接</div></header>
 <main><section class="hero"><h1>Instagram 快拍浏览器</h1><div class="sub">公开账号 · 实时快拍 · 精选快拍 · 帖子与 Reels · iPhone 适配</div></section>
@@ -26,7 +26,7 @@
 <section class="profile-view"><h2 style="margin:0 0 8px;font-size:18px">公开 Instagram 主页</h2><p style="color:#aaa;font-size:13px;line-height:1.6">在本站查看公开主页资料与最近帖子，不需要跳转 Instagram。输入上方用户名后点击这里加载主页。</p><button class="primary" id="loadProfile" type="button">在本站打开主页</button><div id="profileResult"></div><div class="profile-note">仅显示第三方 API 能获取的公开资料。私密内容不可查看；图片和视频地址可能过期。点击帖子可在本站预览。</div></section>
 </main>
 <script>
-const $=id=>document.getElementById(id);let accounts=[],stories=[],index=0,tick=null,paused=false,startAt=0,duration=7000,elapsedBeforePause=0,activeUrl=null,currentProfile="";
+const $=id=>document.getElementById(id);let accounts=[],stories=[],followersCursor=null,followersProfile="",followersSampled=false,index=0,tick=null,paused=false,startAt=0,duration=7000,elapsedBeforePause=0,activeUrl=null,currentProfile="";
 async function api(path,options={}){const r=await fetch(path,{...options,credentials:"same-origin",headers:{"content-type":"application/json",...(options.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||"请求失败");return d}
 function msg(t){$("message").textContent=t||""}
 function profileValue(){return $("profile").value.trim().replace(/^@/,"")}
@@ -59,14 +59,46 @@ async function loadProfile(){
  try{
   const d=await api("/api/profile?username="+encodeURIComponent(p));
   const x=d.profile||{};const stats=x.metrics||{};const recent=d.recentMedia||[];
-  box.innerHTML='<div class="profile-head"><img src="'+esc(x.avatarUrlHd||x.avatarUrl||"")+'" alt=""><div><div class="profile-name">'+esc(x.displayName||x.handle||p)+(x.verified?' ✓':'')+'</div><div class="profile-handle">@'+esc(x.handle||p)+'</div><div class="profile-meta">'+esc(x.category||x.accountType||"Instagram 公开主页")+'</div></div></div><div class="profile-bio">'+esc(x.bio||"暂无公开简介")+'</div><div class="profile-stats"><span><b>'+esc(stats.posts??"—")+'</b> 帖子</span><span><b>'+esc(stats.followers??"—")+'</b> 粉丝</span><span><b>'+esc(stats.following??"—")+'</b> 关注</span></div><div class="profile-grid" id="profileGrid"></div>';
+  box.innerHTML='<div class="profile-head"><img src="'+esc(x.avatarUrlHd||x.avatarUrl||"")+'" alt=""><div><div class="profile-name">'+esc(x.displayName||x.handle||p)+(x.verified?' ✓':'')+'</div><div class="profile-handle">@'+esc(x.handle||p)+'</div><div class="profile-meta">'+esc(x.category||x.accountType||"Instagram 公开主页")+'</div></div></div><div class="profile-bio">'+esc(x.bio||"暂无公开简介")+'</div><div class="profile-stats"><span><b>'+esc(stats.posts??"—")+'</b> 帖子</span><span><b>'+esc(stats.followers??"—")+'</b> 粉丝</span><span><b>'+esc(stats.following??"—")+'</b> 关注</span></div><div class="profile-grid" id="profileGrid"></div><div class="followers-box"><div class="followers-head"><h3>关注者</h3><span class="followers-count" id="followersCount">尚未加载</span></div><button class="secondary" id="loadFollowers" type="button">浏览关注者</button><div class="profile-note" id="followersNote">查看这个公开账号的关注者列表。</div><div class="followers-list" id="followersList"></div><button class="secondary hidden followers-more" id="moreFollowers" type="button">加载更多关注者</button></div>';
   const grid=$("profileGrid");
   recent.forEach((m,i)=>{const tile=document.createElement("button");tile.className="profile-tile";tile.type="button";const im=document.createElement("img");im.loading="lazy";im.src=m.thumbnail_url||m.media_url||"";im.alt=m.caption||"Instagram media";tile.append(im);if(m.media_type==="VIDEO"){const badge=document.createElement("span");badge.textContent="▶";tile.append(badge)}tile.addEventListener("click",()=>{stories=recent.map(z=>({...z,kind:"post"}));currentProfile=p;show(i)});grid.append(tile)});
   if(!recent.length)grid.innerHTML='<p class="profile-note">主页资料已加载，但 API 没有返回最近帖子。</p>';
   msg("主页已在本站加载 · "+(d.creditsCharged??"?")+" API credits");setStatus("公开主页 · @"+p);
  }catch(e){box.textContent=e.message;msg(e.message)}
 }
+
+let followersSeen=new Set();
+async function loadFollowers(reset=true){
+ const p=profileValue();if(!p){msg("请先输入 Instagram 用户名。");return}
+ if(reset){followersProfile=p;followersCursor=null;followersSampled=false;followersSeen=new Set();$("followersList").innerHTML="";$("followersNote").textContent="正在读取关注者…"}
+ else if(!followersCursor)return;
+ const btn=$("loadFollowers"),more=$("moreFollowers");btn.disabled=true;more.disabled=true;
+ try{
+  const qs="username="+encodeURIComponent(p)+(reset?"":"&cursor="+encodeURIComponent(followersCursor));
+  const d=await api("/api/followers?"+qs);
+  if(d.lookupStatus==="private"){ $("followersNote").textContent="该账号为私密账号，无法读取关注者列表。";$("followersCount").textContent="不可访问";more.classList.add("hidden");return}
+  if(d.lookupStatus!=="found"){ $("followersNote").textContent="没有找到该公开账号。";more.classList.add("hidden");return}
+  const list=$("followersList");
+  (d.accounts||[]).forEach(a=>{
+   const key=a.id||a.handle;if(!key||followersSeen.has(key))return;followersSeen.add(key);
+   const card=document.createElement("div");card.className="follower-card";
+   const img=document.createElement("img");img.loading="lazy";img.src=a.avatarUrl||"";img.alt="";img.onerror=()=>{img.style.visibility="hidden"};
+   const info=document.createElement("div");info.style.minWidth="0";
+   const name=document.createElement("div");name.className="follower-name";name.textContent=(a.displayName||a.handle||"Instagram 用户")+(a.verified?" ✓":"");if(a.verified)name.classList.add("follower-verified");
+   const handle=document.createElement("div");handle.className="follower-handle";handle.textContent=a.handle?"@"+a.handle:"";
+   info.append(name,handle);card.append(img,info);list.append(card);
+  });
+  followersCursor=d.page?.hasMore?d.page.nextCursor:null;followersSampled=followersSampled||!!d.sampled;
+  $("followersCount").textContent=followersSeen.size+" 位已显示";
+  $("followersNote").textContent=followersSampled?"提示：Instagram 对大型账号只公开提供部分关注者样本，列表不保证完整。":"已按 API 提供的分页结果加载；每页请求会消耗 credits。";
+  more.classList.toggle("hidden",!followersCursor);
+  msg("关注者已加载 "+(d.creditsCharged??"?")+" API credits");setStatus("关注者 · @"+p);
+ }catch(e){$("followersNote").textContent=e.message;msg(e.message)}
+ finally{btn.disabled=false;more.disabled=false}
+}
+
 $("loadProfile").onclick=loadProfile;
+$("loadFollowers").onclick=()=>loadFollowers(true);$("moreFollowers").onclick=()=>loadFollowers(false);
 
 status();
 </script></body></html>
