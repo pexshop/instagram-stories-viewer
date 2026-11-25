@@ -11,46 +11,22 @@ const SECURITY_HEADERS={
  "Origin-Agent-Cluster":"?1",
  "Strict-Transport-Security":"max-age=31536000; includeSubDomains"
 };
-const rateBuckets=new Map();
-function nonceValue(){
- const bytes=new Uint8Array(18);crypto.getRandomValues(bytes);
- return btoa(String.fromCharCode(...bytes));
-}
-function withSecurity(response,nonce=null){
- const headers=new Headers(response.headers);
- for(const [k,v] of Object.entries(SECURITY_HEADERS))headers.set(k,v);
- const scriptPolicy=nonce
-  ? `script-src 'self' 'nonce-${nonce}' https://www.instagram.com`
-  : "script-src 'self' https://www.instagram.com";
- headers.set("Content-Security-Policy",`default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; ${scriptPolicy}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.cdninstagram.com https://*.fbcdn.net https://assets.science.nasa.gov; media-src 'self' blob: https://*.cdninstagram.com https://*.fbcdn.net; font-src 'self' data:; connect-src 'self'; frame-src https://www.instagram.com https://open.spotify.com; upgrade-insecure-requests`);
- return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
-}
-async function secureAssetResponse(response){
- if(!response.ok)return withSecurity(response);
- const type=response.headers.get("content-type")||"";
- if(!type.toLowerCase().includes("text/html"))return withSecurity(response);
- const nonce=nonceValue();
- const html=await response.text();
- const secured=html.replace(/<script\b/gi,match=>match+` nonce="${nonce}"`);
- const headers=new Headers(response.headers);
- headers.set("Cache-Control","no-store, max-age=0");
- headers.set("Pragma","no-cache");
- headers.delete("ETag");
- headers.delete("Last-Modified");
- return withSecurity(new Response(secured,{status:response.status,statusText:response.statusText,headers}),nonce);
-}
-const json=(data,status=200)=>withSecurity(new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","pragma":"no-cache"}}));
-function rateLimit(request,path){
+async function rateLimit(request,path,env){
+ if(!env.RATE_LIMITER)return {allowed:false,unavailable:true};
  const ip=request.headers.get("CF-Connecting-IP")||"unknown";
- const now=Date.now(),windowMs=60_000;
- for(const [key,b] of rateBuckets){if(now-b.start>windowMs)rateBuckets.delete(key);}
- if(rateBuckets.size>4096){const oldest=rateBuckets.keys().next().value;if(oldest)rateBuckets.delete(oldest);}
  const expensive=/\/(profile|stories|highlights?|media|comments|likers|trending|search)/.test(path);
- const limit=expensive?12:60,key=ip+"|"+(expensive?"expensive":"general");
- let bucket=rateBuckets.get(key);
- if(!bucket||now-bucket.start>windowMs){bucket={start:now,count:0};rateBuckets.set(key,bucket);}
- bucket.count++;
- return bucket.count<=limit;
+ const limit=expensive?12:60;
+ try{
+  const id=env.RATE_LIMITER.idFromName(ip+"|"+(expensive?"expensive":"general"));
+  const stub=env.RATE_LIMITER.get(id);
+  const response=await stub.fetch("https://rate-limiter.internal/check",{
+   method:"POST",
+   headers:{"content-type":"application/json"},
+   body:JSON.stringify({limit,windowMs:60_000})
+  });
+  if(!response.ok)return {allowed:false,unavailable:true};
+  return await response.json();
+ }catch{return {allowed:false,unavailable:true};}
 }
 function validMedia(value){
  const raw=String(value||"").trim();
@@ -131,6 +107,33 @@ function normalize(items){
  });
  return (Array.isArray(items)?items:[]).map(one).filter(x=>x.media_url||x.thumbnail_url||x.carousel.length);
 }
+export class RateLimiter {
+ constructor(state,env){this.state=state;this.env=env;}
+ async fetch(request){
+  if(request.method!=="POST")return new Response("Method not allowed",{status:405});
+  let input;
+  try{input=await request.json()}catch{return new Response("Bad request",{status:400});}
+  const limit=Math.max(1,Math.min(100,Number(input.limit)||1));
+  const windowMs=Math.max(1000,Math.min(300000,Number(input.windowMs)||60000));
+  const now=Date.now();
+  let result;
+  try{
+   result=await this.state.storage.transaction(async tx=>{
+    let bucket=await tx.get("bucket");
+    if(!bucket||now-bucket.start>=windowMs)bucket={start:now,count:0};
+    bucket.count++;
+    await tx.put("bucket",bucket);
+    return {allowed:bucket.count<=limit,remaining:Math.max(0,limit-bucket.count),resetAt:bucket.start+windowMs};
+   });
+   await this.state.storage.setAlarm(now+windowMs*2);
+  }catch{return new Response("Rate limiter storage unavailable",{status:503});}
+  return Response.json(result,{headers:{"cache-control":"no-store"}});
+ }
+ async alarm(){
+  try{await this.state.storage.delete("bucket");}catch{}
+ }
+}
+
 export default {
  async fetch(request,env){
   const url=new URL(request.url);
@@ -140,7 +143,7 @@ export default {
     const origin=request.headers.get("Origin");
     if(origin&&origin!==url.origin)return json({error:"Cross-origin request blocked"},403);
     if(request.headers.get("Sec-Fetch-Site")==="cross-site")return json({error:"Cross-site request blocked"},403);
-    if(!rateLimit(request,url.pathname))return withSecurity(new Response(JSON.stringify({error:"请求过于频繁，请一分钟后重试。"}),{status:429,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","retry-after":"60"}}));
+    const rate=await rateLimit(request,url.pathname,env);\n    if(rate.unavailable)return json({error:"安全限流服务暂不可用，请稍后重试。"},503);\n    if(!rate.allowed)return withSecurity(new Response(JSON.stringify({error:"请求过于频繁，请一分钟后重试。"}),{status:429,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","retry-after":"60"}}));
    }
    if(url.pathname==="/spotify/callback"){
     const target=new URL("/spotify-player.html",url);
