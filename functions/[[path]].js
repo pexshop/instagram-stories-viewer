@@ -1,8 +1,8 @@
 import worker from "../worker.js";
 
+// Run the shared Worker API implementation inside Cloudflare Pages Functions.
+// Requests outside the API are passed through to the Pages static asset handler.
 export async function onRequest(context) {
-  // Reuse the existing Worker API/OAuth implementation inside Cloudflare Pages.
-  // When the request is not an API/auth route, fall through to the Pages static asset.
   const env = {
     ...context.env,
     ASSETS: {
