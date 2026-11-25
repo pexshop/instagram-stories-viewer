@@ -306,7 +306,24 @@ input:not([type=checkbox]),select,.embed-form input{
  <div class="media-modal-foot" style="display:block"><div id="modalMusicStatus" aria-live="polite" style="font-size:12px;line-height:1.5;margin-bottom:6px;color:#d7d0ff">正在准备音乐识别…</div><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span id="mediaModalCount"></span><span>点击关闭返回主页</span></div></div></div></div>
 <script>
 const $=id=>document.getElementById(id);let accounts=[],stories=[],index=0,tick=null,paused=false,startAt=0,duration=7000,elapsedBeforePause=0,activeUrl=null,currentProfile="";
-async function api(path,options={}){const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),18000);try{const r=await fetch(path,{...options,signal:controller.signal,credentials:"same-origin",headers:{"content-type":"application/json",...(options.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||("请求失败（HTTP "+r.status+"）"));return d}catch(e){if(e.name==="AbortError")throw Error("请求超过 18 秒仍未完成，已停止等待。请检查网络或第三方 API 状态。");throw e}finally{clearTimeout(timeout)}}
+const apiInFlight=new Map();
+async function api(path,options={}){
+ const method=String(options.method||"GET").toUpperCase();
+ const key=method+" "+path;
+ if(method==="GET"&&apiInFlight.has(key))return apiInFlight.get(key);
+ const task=(async()=>{
+  const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),15000);
+  try{
+   const r=await fetch(path,{...options,signal:controller.signal,credentials:"same-origin",headers:{"accept":"application/json",...(options.headers||{})}});
+   const d=await r.json().catch(()=>({}));
+   if(!r.ok)throw Error(d.error||("请求失败（HTTP "+r.status+"）"));
+   return d;
+  }catch(e){if(e.name==="AbortError")throw Error("请求超过 15 秒仍未完成，已停止等待。请检查网络或第三方 API 状态。");throw e}
+  finally{clearTimeout(timeout);apiInFlight.delete(key)}
+ })();
+ if(method==="GET")apiInFlight.set(key,task);
+ return task;
+}
 function msg(t){$("message").textContent=t||""}
 function profileValue(){return $("profile").value.trim().replace(/^@/,"")}
 const PROFILE_HISTORY_KEY="ig_profile_history_v1";
@@ -343,12 +360,12 @@ async function refreshHistoryPosts(){
   status.textContent="最近刷新："+new Date().toLocaleString()+" · 成功 "+success+" 个账号，异常 "+failed+" 个账号。";
  }finally{historyRefreshBusy=false;$("refreshHistoryPosts").disabled=false}
 }
-function setHistoryAuto(enabled){
+function setHistoryAuto(enabled,runNow=true){
  if(historyAutoTimer){clearInterval(historyAutoTimer);historyAutoTimer=null}
  const btn=$("toggleHistoryAuto");btn.setAttribute("aria-pressed",String(enabled));
  btn.textContent=enabled?"关闭自动刷新":"开启自动刷新（每 15 分钟）";
  try{localStorage.setItem("ig_history_auto_refresh",enabled?"1":"0")}catch{}
- if(enabled){refreshHistoryPosts();historyAutoTimer=setInterval(refreshHistoryPosts,15*60*1000);$("historyRefreshStatus").textContent="自动刷新已开启：每 15 分钟读取一次观看记录账号的最新公开帖子。"}
+ if(enabled){if(runNow)refreshHistoryPosts();historyAutoTimer=setInterval(refreshHistoryPosts,15*60*1000);$("historyRefreshStatus").textContent=runNow?"自动刷新已开启：每 15 分钟读取一次观看记录账号的最新公开帖子。":"自动刷新已恢复：将在 15 分钟后进行下一次刷新。"}
  else{$("historyRefreshStatus").textContent="自动刷新已关闭。可点击“立即刷新帖子”手动更新。"}
 }
 function rememberProfile(value=profileValue()){const p=value.trim().replace(/^@/,"");if(!/^[A-Za-z0-9._]{1,30}$/.test(p))return;try{const items=[p,...readProfileHistory().filter(x=>x.toLowerCase()!==p.toLowerCase())];localStorage.setItem(PROFILE_HISTORY_KEY,JSON.stringify(items));renderProfileHistory()}catch{const box=$("profileHistory");if(box)box.textContent="浏览器存储不可用，无法保存记录"}}
@@ -377,7 +394,7 @@ async function playHighlight(){const id=$("highlights").value;if(!id){msg("请�
 function renderMediaGallery(items,label,p){const box=$("mediaGallery");box.replaceChildren();$("mediaResultCount").textContent=items.length+" 条";if(!items.length){const empty=document.createElement("p");empty.className="media-gallery-empty";empty.textContent="没有返回"+label+"。请确认账号公开、API 额度充足，或稍后重试。";box.append(empty);return}items.forEach((item,i)=>{const card=document.createElement("button");card.type="button";card.className="media-card";const img=document.createElement("img");img.loading="lazy";img.src=item.thumbnail_url||item.media_url||"";img.alt=item.caption||label;img.onerror=()=>{img.style.opacity=".25";img.alt="媒体预览暂时无法加载"};card.append(img);const kind=document.createElement("span");kind.className="media-kind";kind.textContent=item.media_type==="VIDEO"?"▶ 视频":item.media_type==="CAROUSEL"?"▦ 多图":"图片";card.append(kind);if(item.caption){const caption=document.createElement("span");caption.className="media-caption";caption.textContent=item.caption;card.append(caption)}card.addEventListener("click",()=>{if(item.carousel?.length)openMediaModal(item.carousel,0,p);else openMediaModal(items,i,p)});box.append(card)});msg(label+" · "+items.length+" 条");}
 async function loadMedia(tab){const p=profileValue();if(!p){msg("请先输入 Instagram 用户名。");return}rememberProfile(p);currentProfile=p;const label=tab==="reels"?"Reels":"帖子";const box=$("mediaGallery");box.innerHTML='<p class="media-gallery-empty">正在读取'+label+'…</p>';$("mediaResultCount").textContent="加载中";$("postsSection").scrollIntoView({behavior:"smooth",block:"start"});try{const d=await api("/api/media?username="+encodeURIComponent(p)+"&tab="+tab);if(d.lookupStatus==="private"){renderMediaGallery([],label,p);msg("该账号为私密账号，无法读取帖子或 Reels。");return}if(d.lookupStatus==="not_found"){renderMediaGallery([],label,p);msg("没有找到这个 Instagram 账号，请检查用户名。");return}renderMediaGallery(d.media||[],label,p);setStatus("公开内容 · @"+p);if(!d.media?.length)msg("接口已连接，但没有返回"+label+"。可能是该账号没有可公开读取的内容，或第三方服务暂时无法获取。")}catch(e){box.textContent=e.message;$("mediaResultCount").textContent="加载失败";msg("读取"+label+"失败："+e.message)}}
 async function status(){try{const d=await api("/api/status");setStatus(d.apiKeyConfigured?"API 密钥已配置 · 连接待验证":"等待配置第三方 API");if(!d.apiKeyConfigured)msg("尚未配置 SOCIALFETCH_API_KEY。请在 Cloudflare Pages → Settings → Variables and Secrets 添加加密 Secret。")}catch(e){setStatus("API 状态读取失败");msg(e.message)}}
-$("loadStories").onclick=loadStories;$("loadHighlights").onclick=loadHighlights;$("playHighlight").onclick=playHighlight;$("loadPosts").onclick=()=>loadMedia("posts");$("loadReels").onclick=()=>loadMedia("reels");$("profile").addEventListener("input",syncProfileUrl);$("profile").addEventListener("keydown",e=>{if(e.key==="Enter")loadStories()});$("profileUrl").addEventListener("click",()=>rememberProfile());$("clearProfileHistory").onclick=()=>{try{localStorage.removeItem(PROFILE_HISTORY_KEY)}catch{}renderProfileHistory();$("historyPostsFeed").replaceChildren()};$("refreshHistoryPosts").onclick=refreshHistoryPosts;$("toggleHistoryAuto").onclick=()=>setHistoryAuto($("toggleHistoryAuto").getAttribute("aria-pressed")!=="true");syncProfileUrl();renderProfileHistory();if(localStorage.getItem("ig_history_auto_refresh")==="1")setHistoryAuto(true);
+$("loadStories").onclick=loadStories;$("loadHighlights").onclick=loadHighlights;$("playHighlight").onclick=playHighlight;$("loadPosts").onclick=()=>loadMedia("posts");$("loadReels").onclick=()=>loadMedia("reels");$("profile").addEventListener("input",syncProfileUrl);$("profile").addEventListener("keydown",e=>{if(e.key==="Enter")loadStories()});$("profileUrl").addEventListener("click",()=>rememberProfile());$("clearProfileHistory").onclick=()=>{try{localStorage.removeItem(PROFILE_HISTORY_KEY)}catch{}renderProfileHistory();$("historyPostsFeed").replaceChildren()};$("refreshHistoryPosts").onclick=refreshHistoryPosts;$("toggleHistoryAuto").onclick=()=>setHistoryAuto($("toggleHistoryAuto").getAttribute("aria-pressed")!=="true");syncProfileUrl();renderProfileHistory();if(localStorage.getItem("ig_history_auto_refresh")==="1")setHistoryAuto(true,false);
 $("next").onclick=next;$("prev").onclick=prev;$("close").onclick=hideStage;
 $("pause").onclick=()=>{paused=!paused;$("pause").textContent=paused?"继续":"暂停";if(paused){elapsedBeforePause+=Date.now()-startAt;clearInterval(tick);$("clip").pause()}else{$("clip").play().catch(()=>{});begin()}};
 $("duration").onchange=()=>{if(stories[index]&&stories[index].media_type!=="VIDEO"){elapsedBeforePause=0;begin()}};
@@ -597,7 +614,7 @@ status();
   canvas.style.width=w+"px";canvas.style.height=h+"px";
   ctx.setTransform(dpr,0,0,dpr,0,0);
   const mobile=window.innerWidth<700;
-   const count=Math.min(mobile?110:260,Math.max(mobile?70:120,Math.round(w*h/(mobile?9500:5200))));
+   const count=Math.min(mobile?38:150,Math.max(mobile?24:70,Math.round(w*h/(mobile?26000:9000))));
   stars=Array.from({length:count},()=>{const depth=rand(.25,1);return{x:rand(0,w),y:rand(0,h),r:rand(.25,1.55)*depth,a:rand(.28,.92),phase:rand(0,Math.PI*2),speed:rand(.35,1.25),drift:rand(.025,.16)*depth,depth,color:Math.random()>.88?"#b9d7ff":(Math.random()>.88?"#ffe5c2":"#e4edff")};});
  }
  function addShooter(){
@@ -609,7 +626,7 @@ status();
  }
  function draw(t){
   if(!w||!h)return;
-  if(t-last<33){raf=requestAnimationFrame(draw);return;}
+  if(t-last<(w<700?100:66)){raf=requestAnimationFrame(draw);return;}
   const dt=Math.min((t-last)/16.67||1,2);last=t;
   ctx.clearRect(0,0,w,h);
   // NASA astrophotography supplies nebula and galaxy detail; this canvas animates stars only.
@@ -619,7 +636,7 @@ status();
    if(s.y>h+2){s.y=-2;s.x=rand(0,w);}
    ctx.globalAlpha=s.a*twinkle;
    ctx.fillStyle=s.color;
-   if(s.r>1.12){ctx.shadowBlur=8*s.depth;ctx.shadowColor=s.color;}
+   if(s.r>1.12&&w>=700){ctx.shadowBlur=4*s.depth;ctx.shadowColor=s.color;}
    ctx.beginPath();ctx.arc(s.x,s.y,s.r,0,Math.PI*2);ctx.fill();
    ctx.shadowBlur=0;
    if(s.r>1.28){ctx.globalAlpha*=.34;ctx.fillRect(s.x-3.8,s.y-.35,7.6,.7);ctx.fillRect(s.x-.35,s.y-3.8,.7,7.6);}
@@ -707,13 +724,13 @@ status();
   for(let y=0;y<off.height;y+=3)for(let x=0;x<off.width;x+=3){
    if(pixels[(y*off.width+x)*4+3]>120)targets.push({x:width/2-off.width/2+x,y:height/2+font*1.7-off.height/2+y});
   }
-  const count=Math.min(440,targets.length);
+  const count=Math.min(160,targets.length);
   particles=Array.from({length:count},(_,i)=>({x:rand(0,width),y:rand(0,height),tx:targets[Math.floor(i*targets.length/count)].x,ty:targets[Math.floor(i*targets.length/count)].y,sx:rand(width*.12,width*.88),sy:rand(height*.25,height*.75),phase:rand(0,Math.PI*2),size:rand(.65,1.55)}));
   lastBuild=performance.now();
  }
  function draw(t){
   if(!ctx||document.hidden||lowPower)return;
-  if(t-lastFrame<33){raf=requestAnimationFrame(draw);return;}
+  if(t-lastFrame<66){raf=requestAnimationFrame(draw);return;}
   lastFrame=t;
   ctx.clearRect(0,0,width,height);
   const assembling=((t-lastBuild)%12000)<8500;
@@ -722,7 +739,7 @@ status();
    const ty=assembling?p.ty:p.sy+Math.sin(t*.00013+p.phase)*12;
    p.x+=(tx-p.x)*.018;p.y+=(ty-p.y)*.018;
    const shimmer=.35+.35*(.5+.5*Math.sin(t*.001+p.phase));
-   ctx.globalAlpha=shimmer;ctx.fillStyle="#b9dcff";ctx.shadowBlur=6;ctx.shadowColor="#8bbdff";
+   ctx.globalAlpha=shimmer;ctx.fillStyle="#b9dcff";ctx.shadowBlur=2;ctx.shadowColor="#8bbdff";
    ctx.beginPath();ctx.arc(p.x,p.y,p.size,0,Math.PI*2);ctx.fill();
   }
   ctx.globalAlpha=1;ctx.shadowBlur=0;
