@@ -13,7 +13,13 @@ Official reference: https://developers.facebook.com/docs/graph-api/reference/ig-
 **Use Workers, not Cloudflare Pages.** This repository contains a Worker backend and static assets. Cloudflare Pages static hosting alone will not run `worker.js`.
 
 1. In Cloudflare Dashboard, open **Workers & Pages → KV** and create a namespace, e.g. `IGSV_SESSIONS`.
-2. Copy its Namespace ID and replace `REPLACE_WITH_YOUR_KV_NAMESPACE_ID` in `wrangler.toml` under `[[kv_namespaces]]`. Do not leave the placeholder.
+2. Copy its Namespace ID and add this block to `wrangler.toml` (replace the example ID with the real one):
+
+   ```toml
+   [[kv_namespaces]]
+   binding = "SESSION_KV"
+   id = "PASTE_REAL_KV_NAMESPACE_ID_HERE"
+   ```
 3. Create a Meta app at https://developers.facebook.com/apps/ and configure Facebook Login.
 4. Choose your final Worker hostname, then replace both `YOUR-WORKER.workers.dev` values in `wrangler.toml`. The redirect URI must be exactly `https://YOUR-WORKER.workers.dev/auth/callback`.
 5. In Meta App Dashboard, add that exact URL to the valid OAuth redirect URI list.
