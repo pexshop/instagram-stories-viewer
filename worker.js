@@ -6,7 +6,7 @@ function cleanProfile(value){
 }
 async function social(path,env){
  if(!env.SOCIALFETCH_API_KEY) throw new Error("尚未配置 SOCIALFETCH_API_KEY。请在 Cloudflare Pages → Settings → Variables and Secrets 添加加密 Secret。");
- const response=await fetch("https://api.socialfetch.dev"+path,{headers:{"x-api-key":env.SOCIALFETCH_API_KEY,"accept":"application/json"}});
+ let response;try{response=await fetch("https://api.socialfetch.dev"+path,{headers:{"x-api-key":env.SOCIALFETCH_API_KEY,"accept":"application/json"},signal:AbortSignal.timeout(15000)});}catch(e){if(e.name==="TimeoutError"||e.name==="AbortError"){const error=new Error("第三方 API 响应超过 15 秒，已自动停止等待。请稍后重试。");error.status=504;throw error;}throw e;}
  const data=await response.json().catch(()=>({}));
  if(!response.ok) {
   const msg=data.error?.message||data.error?.detail||data.message||("第三方 API 请求失败（HTTP "+response.status+"）");
