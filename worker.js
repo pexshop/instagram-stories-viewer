@@ -33,7 +33,7 @@ async function secureAssetResponse(response){
  if(!type.toLowerCase().includes("text/html"))return withSecurity(response);
  const nonce=nonceValue();
  const html=await response.text();
- const secured=html.replace(/<(script|style)\\b/gi,match=>match+` nonce="${nonce}"`);
+ const secured=html.replace(/<(script|style)\b/gi,match=>match+` nonce="${nonce}"`);
  const headers=new Headers(response.headers);
  headers.set("Cache-Control","no-store, max-age=0");
  headers.set("Pragma","no-cache");
