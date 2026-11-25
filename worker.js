@@ -1,7 +1,10 @@
 const SECURITY_HEADERS={
  "X-Content-Type-Options":"nosniff",
  "X-Frame-Options":"DENY",
- "Referrer-Policy":"strict-origin",
+ "Referrer-Policy":"no-referrer",
+ "Cross-Origin-Resource-Policy":"same-origin",
+ "X-DNS-Prefetch-Control":"off",
+ "X-Download-Options":"noopen",
  "Permissions-Policy":"camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()",
  "Cross-Origin-Opener-Policy":"same-origin",
  "X-Permitted-Cross-Domain-Policies":"none",
