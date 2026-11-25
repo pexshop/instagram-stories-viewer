@@ -89,7 +89,7 @@ async function exchangeCode(){
  const response=await fetch("https://accounts.spotify.com/api/token",{method:"POST",headers:{"Content-Type":"application/x-www-form-urlencoded"},body:body});
  const data=await response.json();if(!response.ok)throw new Error(data.error_description||data.error||"Spotify 登录换取令牌失败。");
  saveTokens(data);sessionStorage.removeItem("spotify_pkce_verifier");sessionStorage.removeItem("spotify_oauth_state");
- history.replaceState({},"","/spotify-player");return true;
+ history.replaceState({},"","/spotify-player.html");return true;
 }
 function saveTokens(data){token=data.access_token;expiresAt=Date.now()+(Number(data.expires_in||3600)-60)*1000;if(data.refresh_token)refreshToken=data.refresh_token;sessionStorage.setItem("spotify_access_token",token);sessionStorage.setItem("spotify_expires_at",String(expiresAt));if(refreshToken)sessionStorage.setItem("spotify_refresh_token",refreshToken);}
 async function validToken(){
@@ -133,7 +133,7 @@ function initializePlayer(){
    if(!state.paused&&current){const remaining=Math.max(1000,state.duration-state.position);endTimer=setTimeout(()=>nextTrack(true),remaining+1200);}
   }
  });
- player.connect().then(ok=>{if(!ok)say("无法连接 Spotify 播放设备，请重新尝试。",true);}).catch(e=>say(e.message,true));
+ say("授权成功，正在连接 Spotify 播放设备…");let settled=false;const timer=setTimeout(()=>{if(!settled&&!deviceId)say("授权已完成，但播放器仍未就绪。请确认 Safari 未阻止音频，并点击页面后重试；也可刷新页面。",true);},12000);player.connect().then(ok=>{settled=true;clearTimeout(timer);if(!ok)say("Spotify 播放设备连接失败。请刷新后重试。",true);}).catch(e=>{settled=true;clearTimeout(timer);say("Spotify 播放设备连接失败："+e.message,true);});
 }
 async function searchTracks(){
  const query=$("query").value.trim()||"Justin Bieber";
