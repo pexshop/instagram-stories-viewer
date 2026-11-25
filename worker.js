@@ -29,14 +29,14 @@ function validMedia(value){
  const raw=String(value||"").trim();
  if(!raw||raw.length>500)throw new Error("请输入有效的 Instagram 帖子或 Reels 链接。");
  let u;try{u=new URL(raw)}catch{throw new Error("请使用完整的 Instagram 官方链接。");}
- if(u.protocol!=="https:"||!/(^|\\.)instagram\\.com$/i.test(u.hostname)||u.username||u.password)throw new Error("只支持 HTTPS Instagram 官方链接。");
- if(!/^\\/(p|reel|tv)\\/[A-Za-z0-9_-]+\\/?$/.test(u.pathname))throw new Error("请使用 Instagram 帖子或 Reels 链接。");
+ if(u.protocol!=="https:"||!/(^|\.)instagram\.com$/i.test(u.hostname)||u.username||u.password)throw new Error("只支持 HTTPS Instagram 官方链接。");
+ if(!/^\/(p|reel|tv)\/[A-Za-z0-9_-]+\/?$/.test(u.pathname))throw new Error("请使用 Instagram 帖子或 Reels 链接。");
  return u.origin+u.pathname;
 }
 function safeCursor(value){
  if(!value)return null;
  const v=String(value).trim();
- if(v.length>500||/[<>\\r\\n]/.test(v))throw new Error("分页标记无效，请重新加载列表。");
+ if(v.length>500||/[<>\r\n]/.test(v))throw new Error("分页标记无效，请重新加载列表。");
  return v;
 }
 function cleanProfile(value){
