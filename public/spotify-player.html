@@ -75,7 +75,7 @@ button,input{font:inherit}button{cursor:pointer;border:0;color:inherit}.app{max-
  <section class="view" id="searchView">
   <h1 class="viewTitle">搜索</h1><p class="sub">输入歌曲或艺人名称，在 Spotify 官方网站中查看搜索结果。</p>
   <div class="inputRow"><input id="searchPageInput" placeholder="例如：歌曲名 / 艺人名"><button class="action primary" id="doSearch">搜索 Spotify</button></div>
-  <div class="hint">由于 Spotify Free 开发者接口限制，本页面不调用 Spotify Web API。搜索会打开 Spotify 官方搜索页面；复制分享链接后可添加到你的音乐库。</div>
+  <div class="hint">为避免 iPhone 自动跳转 Spotify App，搜索会使用普通网页搜索展示 Spotify 曲目链接；选择结果后复制 Spotify 分享链接，再添加到音乐库。不会调用 Spotify Web API。</div>
   <div class="sectionHead"><h2>添加 Spotify 分享链接</h2></div>
   <div class="inputRow"><input id="addLinkInput" placeholder="粘贴 open.spotify.com/track/..."><button class="action primary" id="addLinkBtn">添加</button></div>
  </section>
@@ -103,7 +103,7 @@ button,input{font:inherit}button{cursor:pointer;border:0;color:inherit}.app{max-
   <div class="playerControls"><div class="controls"><button id="shuffleBtn" title="随机播放">⤨</button><button id="prevBtn" title="上一首">|‹</button><button class="play" id="playBtn" title="显示播放器">▶</button><button id="nextBtn" title="下一首">›|</button><button id="repeatBtn" title="循环">↻</button></div><div class="progress"><span>Spotify</span><div class="bar"><i></i></div><span>Embed</span></div></div>
   <div class="playerRight"><button id="queueBtn" title="播放队列">☷</button><button id="expandPlayer" title="展开播放器">⌃</button></div>
  </div>
- <div class="embedWrap" id="embedWrap"><div id="embedHost"></div></div>
+ <div class="embedWrap" id="embedWrap"><div id="embedHost"></div><div class="hint">如果只播放约 30 秒：先在 Safari 中登录 Spotify 网页版，再返回本页刷新。Spotify 官方说明，未登录时通常只提供 30 秒试听；若已登录仍只有试听，请检查浏览器是否支持加密媒体播放。</div></div>
 </div>
 <div class="toast" id="toast"></div>
 <script>
@@ -125,7 +125,7 @@ function trackRow(item,i,source){const row=document.createElement('div');row.cla
 function renderLibrary(){const host=$('libraryTracks');host.replaceChildren();const data=library.slice();data.forEach((x,i)=>host.append(trackRow(x,i,'library')));if(!data.length)host.innerHTML='<div class="empty">音乐库还是空的。点击“添加歌曲链接”保存第一首歌曲。</div>';renderSidebar()}
 function openPlaylist(id){const p=playlists.find(x=>x.id===id);if(!p)return;currentPlaylist=id;$('playlistHeading').textContent=p.name;$('playlistSub').textContent=p.items.length+' 首歌曲 · 你的个人歌单';const host=$('playlistTracks');host.replaceChildren();p.items.forEach((x,i)=>host.append(trackRow(x,i,'playlist')));if(!p.items.length)host.innerHTML='<div class="empty">歌单为空。先在音乐库收藏歌曲，再将它们添加到歌单。</div>';switchView('playlistView')}
 function add(raw){const item=parse(raw);if(!library.some(x=>x.key===item.key))library.unshift(item);play(item);save();renderHome();renderLibrary();toast('已添加到音乐库');}
-function mount(item){const host=$('embedHost');host.replaceChildren();const frame=document.createElement('iframe');frame.title='Spotify 官方音乐播放器';frame.src='https://open.spotify.com/embed/'+item.type+'/'+encodeURIComponent(item.id)+'?utm_source=generator&theme=0';frame.allow='autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture';frame.loading='eager';frame.referrerPolicy='strict-origin-when-cross-origin';frame.height=(item.type==='track'||item.type==='episode')?'152':'352';host.append(frame);$('embedWrap').classList.add('open');write(DOCK,true)}
+function mount(item){const host=$('embedHost');host.replaceChildren();const frame=document.createElement('iframe');frame.title='Spotify 官方音乐播放器';frame.src='https://open.spotify.com/embed/'+item.type+'/'+encodeURIComponent(item.id)+'?utm_source=generator&theme=0';frame.allow='autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture';frame.setAttribute('allowfullscreen','');frame.setAttribute('frameborder','0');frame.loading='eager';frame.referrerPolicy='strict-origin-when-cross-origin';frame.height=(item.type==='track'||item.type==='episode')?'152':'352';host.append(frame);$('embedWrap').classList.add('open');write(DOCK,true)}
 function play(item,playlistId){current=item;write(CURRENT,item);$('nowTitle').textContent=label(item);$('nowArtist').textContent='Spotify 官方嵌入播放器';$('nowCover').textContent='♫';recent=[item,...recent.filter(x=>x.key!==item.key)].slice(0,30);if(playlistId){const p=playlists.find(x=>x.id===playlistId);queue=p?p.items.slice():[];queueIndex=queue.findIndex(x=>x.key===item.key)}else{queue=[item];queueIndex=0}save();mount(item);renderHome();toast('已载入播放器；如未自动播放，请点击 Spotify 播放键')}
 function toggleLike(item){const i=library.findIndex(x=>x.key===item.key);if(i>=0)library.splice(i,1);else library.unshift(item);save();renderHome();renderLibrary();if(current&&current.key===item.key)$('likeCurrent').textContent=library.some(x=>x.key===item.key)?'♥':'♡'}
 function createPlaylist(){const name=prompt('请输入歌单名称');if(!name||!name.trim())return;const p={id:Date.now().toString(36),name:name.trim(),items:[]};playlists.unshift(p);save();renderSidebar();openPlaylist(p.id)}
@@ -136,11 +136,12 @@ document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>switchView(b.d
 document.querySelectorAll('[data-jump]').forEach(b=>b.onclick=()=>switchView(b.dataset.jump));
 $('quickAdd').onclick=()=>switchView('addView');$('quickRecent').onclick=()=>{switchView('libraryView');$('libraryHeading').textContent='最近播放';const h=$('libraryTracks');h.replaceChildren();recent.forEach((x,i)=>h.append(trackRow(x,i,'recent')))};
 $('newPlaylist').onclick=createPlaylist;$('newPlaylist2').onclick=createPlaylist;
-$('doSearch').onclick=()=>{const q=$('searchPageInput').value.trim();if(!q){toast('先输入歌曲或艺人名称');return}window.open('https://open.spotify.com/search/'+encodeURIComponent(q),'_blank','noopener')};
-$('searchInput').addEventListener('keydown',e=>{if(e.key==='Enter'){const q=e.target.value.trim();if(q)window.open('https://open.spotify.com/search/'+encodeURIComponent(q),'_blank','noopener')}});
+function searchMusic(q){q=q.trim();if(!q){toast('先输入歌曲或艺人名称');return}const url='https://www.google.com/search?q='+encodeURIComponent('site:open.spotify.com/track '+q+' Spotify');window.open(url,'_blank','noopener,noreferrer');toast('已打开网页搜索结果，不会直接调用 Spotify App；复制 Spotify 歌曲链接即可添加。')}
+$('doSearch').onclick=()=>searchMusic($('searchPageInput').value);
+$('searchInput').addEventListener('keydown',e=>{if(e.key==='Enter')searchMusic(e.target.value)});
 $('addLinkBtn').onclick=()=>{try{add($('addLinkInput').value);$('addLinkInput').value=''}catch(e){toast(e.message)}};
 $('directAdd').onclick=()=>{try{add($('directLink').value);$('directLink').value='';switchView('home')}catch(e){toast(e.message)}};
-$('pasteLink').onclick=()=>switchView('addView');$('openSpotify').onclick=()=>window.open('https://open.spotify.com/','_blank','noopener');
+$('pasteLink').onclick=()=>switchView('addView');$('openSpotify').onclick=()=>window.open('https://accounts.spotify.com/login?continue='+encodeURIComponent('https://open.spotify.com/'),'_blank','noopener,noreferrer');
 $('playBtn').onclick=()=>{if(current){$('embedWrap').classList.toggle('open');write(DOCK,$('embedWrap').classList.contains('open'))}else switchView('addView')};
 $('expandPlayer').onclick=()=>{$('embedWrap').classList.toggle('open');write(DOCK,$('embedWrap').classList.contains('open'))};
 $('nextBtn').onclick=playNext;$('prevBtn').onclick=playPrev;
