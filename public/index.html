@@ -384,7 +384,7 @@ async function advanceHistoryPostPlayback(){
  }
  modalAutoplay=false;closeMediaModal();msg("所有观看记录账号的帖子已播放完毕。");
 }
-function startHistoryPostPlayback(items,i,p){openMediaModal(items,i,p,true)}
+function startHistoryPostPlayback(items,i,p){const queue=[];let start=0;(items||[]).forEach((entry,n)=>{const parts=Array.isArray(entry.carousel)&&entry.carousel.length?entry.carousel:[entry];if(n<i)start+=parts.length;queue.push(...parts)});openMediaModal(queue,Math.min(start,Math.max(0,queue.length-1)),p,true)}
 function stepMediaModal(delta){if(!modalItems.length)return;modalIndex=(modalIndex+delta+modalItems.length)%modalItems.length;renderMediaModal()}
 $("mediaModalClose").onclick=closeMediaModal;$("mediaModalPrev").onclick=()=>stepMediaModal(-1);$("mediaModalNext").onclick=()=>stepMediaModal(1);
 $("mediaModal").addEventListener("click",e=>{if(e.target===$("mediaModal"))closeMediaModal()});
