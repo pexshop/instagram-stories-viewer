@@ -88,62 +88,50 @@ function cleanProfile(value){
  return raw;
 }
 
-function inscrapeMedia(x){
- const f=x?.firstMedia?.[0]||x?.carouselMedia?.[0]||{};
- const carousel=Array.isArray(x?.carouselMedia)?x.carouselMedia.map((c,i)=>({id:c.id||String(i),mediaType:c.videoUrl?"video":"image",videoUrl:c.videoUrl||null,imageUrl:c.url||null,thumbnailUrl:c.url||c.videoUrl||null,caption:x.caption||"",createdAt:x.post_timestamp||null,url:x.postLink||null})):undefined;
- return {...x,mediaType:(x?.mediaType===2||x?.product_type==="clips"||x?.videoUrl||f.videoUrl)?"video":"image",videoUrl:x?.videoUrl||f.videoUrl||null,imageUrl:x?.imageUrl||f.url||null,thumbnailUrl:x?.thumbnailUrl||f.url||f.videoUrl||null,createdAt:x?.createdAt||x?.post_timestamp||x?.takenAt||x?.taken_at||null,url:x?.url||x?.postLink||null,carousel};
-}
-function inscrapeAccount(x){return {handle:x?.handle||x?.username||x?.user?.username||"",displayName:x?.display_name||x?.full_name||x?.username||"",avatarUrl:x?.profile_pic_url||x?.avatarUrl||"",verified:!!(x?.is_verified||x?.isVerified)};}
-function unsupportedFreeFeature(msg){const e=new Error(msg);e.status=501;return e;}
 async function social(path,env){
- if(!env.INSCRAPE_API_KEY){const e=new Error("尚未配置 InScrape 免费 API Key。请在 Cloudflare Worker Secrets 添加 INSCRAPE_API_KEY。");e.status=503;throw e;}
+ if(!env.INSTALOADER_SERVICE_URL||!env.INSTALOADER_SERVICE_TOKEN){
+  const e=new Error("Instaloader Python 服务尚未连接。请配置 INSTALOADER_SERVICE_URL 和 INSTALOADER_SERVICE_TOKEN。");e.status=503;throw e;
+ }
+ let base;
+ try{base=new URL(env.INSTALOADER_SERVICE_URL);}catch{const e=new Error("INSTALOADER_SERVICE_URL 不是有效网址。");e.status=503;throw e;}
+ if(base.protocol!=="https:"||base.username||base.password){const e=new Error("Instaloader 服务地址必须使用 HTTPS。");e.status=503;throw e;}
  if(typeof path!=="string"||!path.startsWith("/v2/instagram/")||path.includes("..")||path.length>1800){const e=new Error("无效的上游请求。");e.status=400;throw e;}
- const [p,q=""]=path.split("?"),old=new URLSearchParams(q),params=new URLSearchParams();let endpoint="",kind="";
- const stories=p.match(/^\/v2\/instagram\/profiles\/([^/]+)\/stories$/),highlights=p.match(/^\/v2\/instagram\/profiles\/([^/]+)\/highlights$/),list=p.match(/^\/v2\/instagram\/profiles\/([^/]+)\/media$/),profile=p.match(/^\/v2\/instagram\/profiles\/([^/]+)$/),highlight=p.match(/^\/v2\/instagram\/highlights\/(\d{5,30})$/),tag=p.match(/^\/v2\/instagram\/hashtags\/([^/]+)\/media$/),comments=p.match(/^\/v2\/instagram\/media\/([^/]+)\/comments$/),media=p.match(/^\/v2\/instagram\/media\/([^/]+)$/),search=p==="/v2/instagram/profiles/search",cursor=old.get("cursor");
- if(stories){endpoint="/v1/instagram/stories";params.set("handle",decodeURIComponent(stories[1]));kind="stories";}
- else if(highlights){endpoint="/v1/instagram/highlights";params.set("handle",decodeURIComponent(highlights[1]));kind="highlights";}
- else if(list){kind=old.get("tab")==="reels"?"reels":"posts";endpoint="/v1/instagram/"+kind;params.set("handle",decodeURIComponent(list[1]));if(cursor)params.set("next_cursor",cursor);}
- else if(profile){endpoint="/v1/instagram/profile";params.set("handle",decodeURIComponent(profile[1]));params.set("include_posts","true");params.set("include_highlights","true");kind="profile";}
- else if(highlight){endpoint="/v1/instagram/highlight-stories";params.set("highlight_id",highlight[1]);kind="highlight";}
- else if(tag){endpoint="/v1/instagram/hashtag";params.set("tag",decodeURIComponent(tag[1]));if(cursor)params.set("cursor",cursor);kind="tag";}
- else if(search){endpoint="/v1/instagram/search-user";if(!old.get("query"))throw badRequest("请输入搜索关键词。");params.set("query",old.get("query"));if(cursor)params.set("cursor",cursor);kind="search";}
- else if(comments){endpoint="/v1/instagram/comments";params.set("url",decodeURIComponent(comments[1]));if(cursor)params.set("cursor",cursor);kind="comments";}
- else if(media){endpoint="/v1/instagram/post";params.set("url",decodeURIComponent(media[1]));kind="media";}
- else if(p==="/v2/instagram/reels/trending")throw unsupportedFreeFeature("当前免费接口没有热门 Reels 榜单，未发送请求。");
- else if(p==="/v2/instagram/hashtags/search")throw unsupportedFreeFeature("免费接口不提供话题建议搜索。请直接输入准确话题标签浏览帖子。");
- else if(/\/likers$/.test(p))throw unsupportedFreeFeature("免费接口不提供帖子点赞者名单，未发送请求。");
- else throw unsupportedFreeFeature("该功能没有已验证的零付费兼容接口，已安全停止请求。");
- const id=env.RATE_LIMITER.idFromName("inscrape-free-budget-v1"),stub=env.RATE_LIMITER.get(id);
- const reserve=await stub.fetch("https://rate-limiter.internal/free-budget/reserve",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({cost:2,cap:100})});
- if(!reserve.ok){const e=new Error("免费额度保护不可用，已停止请求以避免产生费用。");e.status=503;throw e;}
- const rsv=await reserve.json();if(!rsv.allowed){const e=new Error("100 个免费 credits 安全上限已用完或已预留完毕。不会自动购买积分，也不会调用收费服务。");e.status=402;throw e;}
+ const [p,q=""]=path.split("?"),old=new URLSearchParams(q);
+ let route="",params=new URLSearchParams();
+ const stories=p.match(/^\/v2\/instagram\/profiles\/([^/]+)\/stories$/);
+ const highlights=p.match(/^\/v2\/instagram\/profiles\/([^/]+)\/highlights$/);
+ const list=p.match(/^\/v2\/instagram\/profiles\/([^/]+)\/media$/);
+ const profile=p.match(/^\/v2\/instagram\/profiles\/([^/]+)$/);
+ const highlight=p.match(/^\/v2\/instagram\/highlights\/(\d{5,30})$/);
+ const tag=p.match(/^\/v2\/instagram\/hashtags\/([^/]+)\/media$/);
+ const comments=p.match(/^\/v2\/instagram\/media\/([^/]+)\/comments$/);
+ const media=p.match(/^\/v2\/instagram\/media\/([^/]+)$/);
+ const search=p==="/v2/instagram/profiles/search";
+ const likers=/\/likers$/.test(p);
+ if(stories){route="/v1/instagram/stories";params.set("handle",decodeURIComponent(stories[1]));}
+ else if(highlights){route="/v1/instagram/highlights";params.set("handle",decodeURIComponent(highlights[1]));}
+ else if(list){route=old.get("tab")==="reels"?"/v1/instagram/reels":"/v1/instagram/posts";params.set("handle",decodeURIComponent(list[1]));}
+ else if(profile){route="/v1/instagram/profile";params.set("handle",decodeURIComponent(profile[1]));}
+ else if(highlight){const e=new Error("Instaloader bridge 当前不支持仅凭 Highlight ID 读取内容；请先加载账号 Highlights。");e.status=501;throw e;}
+ else if(tag){route="/v1/instagram/hashtag";params.set("tag",decodeURIComponent(tag[1]));}
+ else if(comments){route="/v1/instagram/comments";params.set("url",decodeURIComponent(comments[1]));}
+ else if(media){route="/v1/instagram/post";params.set("url",decodeURIComponent(media[1]));}
+ else if(search){const e=new Error("Instaloader 不提供 Instagram 账号搜索接口。");e.status=501;throw e;}
+ else if(p==="/v2/instagram/reels/trending"){const e=new Error("Instaloader 不提供全站热门 Reels 榜单。");e.status=501;throw e;}
+ else if(p==="/v2/instagram/hashtags/search"){const e=new Error("Instaloader 不提供话题自动补全搜索。");e.status=501;throw e;}
+ else if(likers){route="/v1/instagram/likers";params.set("url",decodeURIComponent(p.match(/^\/v2\/instagram\/media\/([^/]+)\/likers$/)?.[1]||""));}
+ else {const e=new Error("Instaloader 适配器不支持此功能，未调用其他服务。");e.status=501;throw e;}
+ const target=new URL(route,base.origin);target.search=params.toString();
  let response,data;
  try{
-  const u=new URL("https://api.inscrape.dev"+endpoint);u.search=params.toString();
-  response=await fetch(u.toString(),{headers:{"x-api-key":env.INSCRAPE_API_KEY,"accept":"application/json"},redirect:"error",signal:AbortSignal.timeout(15000)});
-  const raw=await response.text();if(raw.length>5_000_000)throw Error("response too large");data=JSON.parse(raw);
- }catch(e){
-  await stub.fetch("https://rate-limiter.internal/free-budget/settle",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({reserved:2,charged:2})}).catch(()=>{});
-  const err=new Error("InScrape 连接失败或超时。为保护免费预算，已保留最多 2 credits，不会切换到收费服务。");err.status=504;throw err;
+  response=await fetch(target.toString(),{method:"GET",headers:{"authorization":"Bearer "+env.INSTALOADER_SERVICE_TOKEN,"accept":"application/json"},redirect:"error",signal:AbortSignal.timeout(28000)});
+  const raw=await response.text();if(raw.length>5_000_000)throw new Error("response too large");data=JSON.parse(raw);
+ }catch(err){const e=new Error("Instaloader Python 服务连接失败或超时，请检查服务是否在线。");e.status=504;throw e;}
+ if(!response.ok){
+  const msg=data?.error||data?.detail||"Instaloader 请求失败。";
+  const e=new Error(String(msg).slice(0,400));e.status=response.status;throw e;
  }
- const n=Number(data?.credits_charged),charged=Number.isFinite(n)&&n>=0?Math.min(2,n):(response.ok?2:0);
- await stub.fetch("https://rate-limiter.internal/free-budget/settle",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({reserved:2,charged})}).catch(()=>{});
- if(!response.ok||data?.success===false){
-  const status=response.status===402?402:response.status===429?429:503;
-  const msg=response.status===401?"InScrape Key 无效，请检查 INSCRAPE_API_KEY。":response.status===402?"InScrape 免费 credits 不足或 Key 限额已到。已停止请求，不会自动购买或调用付费服务。":response.status===429?"InScrape 暂时限制请求，请稍后重试。":"InScrape 服务暂时不可用。";
-  const e=new Error(msg);e.status=status;throw e;
- }
- const d=data.data||{};let out={};
- if(kind==="profile"){const x=d.profile||d;out={profile:{...x,handle:x.handle||x.username,displayName:x.full_name||x.handle,avatarUrl:x.profile_pic_url,avatarUrlHd:x.profile_pic_url_hd||x.profile_pic_url,bio:x.biography,verified:!!x.is_verified,metrics:{posts:x.media_count??null,followers:x.follower_count??null,following:x.following_count??null}},recentMedia:(d.posts||[]).map(inscrapeMedia),about:{bio:x.biography||"",externalUrl:x.external_url||null}};}
- else if(kind==="stories")out={lookupStatus:"ok",media:(d.stories||[]).map(inscrapeMedia)};
- else if(kind==="highlights")out={lookupStatus:"ok",highlights:d.highlights||[]};
- else if(kind==="highlight")out={lookupStatus:"ok",highlight:null,media:(d.stories||d.media||[]).map(inscrapeMedia)};
- else if(kind==="posts"||kind==="reels")out={lookupStatus:"ok",media:(d[kind]||d.media||[]).map(inscrapeMedia),page:{nextCursor:d.next_cursor||null,hasNextPage:!!d.has_next_page}};
- else if(kind==="tag")out={media:(d.posts||d.media||[]).map(inscrapeMedia),page:{nextCursor:d.next_cursor||null,hasNextPage:!!d.has_next_page}};
- else if(kind==="search")out={accounts:(d.users||d.accounts||[]).map(inscrapeAccount),page:{nextCursor:d.next_cursor||null,hasNextPage:!!d.has_next_page}};
- else if(kind==="comments")out={lookupStatus:"ok",comments:(d.comments||[]).map(x=>({...x,author:x.author||{handle:x.username||x.owner?.username},text:x.text||x.comment||"",likeCount:x.like_count??x.likeCount??0,replyCount:x.reply_count??x.replyCount??0})),page:{nextCursor:d.next_cursor||null,hasNextPage:!!d.has_next_page}};
- else if(kind==="media"){const x=Array.isArray(d.media)?d.media[0]||null:d.media||null,m=x?.clips_metadata||{},a=m.music_info||m.original_sound_info||null;out={lookupStatus:x?"ok":"not_found",media:x?inscrapeMedia(x):null,audio:a?{id:a.music_canonical_id||a.audio_asset_id||null,title:a.title||a.original_audio_title||"Original audio",artist:a.artist||a.ig_artist?.username||"",isOriginal:!!m.original_sound_info}:null};}
- return {data:out,meta:{provider:"InScrape",creditsCharged:charged,creditsRemaining:data.credits_remaining??null,stale:false}};
+ return {data:data?.data||{},meta:{provider:"Instaloader",creditsCharged:0,stale:false}};
 }
 function normalize(items){
  const typeOf=x=>{const t=String(x?.mediaType||"").toLowerCase();if(t==="video"||x?.videoUrl)return "VIDEO";if(t==="carousel"||Array.isArray(x?.carousel)&&x.carousel.length)return "CAROUSEL";return "IMAGE"};
@@ -165,13 +153,7 @@ export class RateLimiter {
  async fetch(request){
   const url=new URL(request.url);
   if(url.hostname!=="rate-limiter.internal")return new Response("Not found",{status:404,headers:{"cache-control":"no-store"}});
-  if(url.pathname==="/free-budget/state"){
-   if(request.method!=="GET")return new Response("Method not allowed",{status:405});
-   const b=await this.state.storage.get("inscrapeFreeBudget")||{used:0,reserved:0,cap:100};
-   return Response.json({used:b.used,reserved:b.reserved,cap:b.cap,remaining:Math.max(0,b.cap-b.used-b.reserved)},{headers:{"cache-control":"no-store"}});
-  }
-  if(url.pathname==="/free-budget/reserve"){
-   if(request.method!=="POST")return new Response("Method not allowed",{status:405});
+  if(request.method!=="POST")return new Response("Method not allowed",{status:405});
    let input;try{input=await request.json()}catch{return new Response("Bad request",{status:400});}
    const cost=Math.max(0.1,Math.min(2,Number(input.cost)||2));
    const result=await this.state.storage.transaction(async tx=>{
@@ -189,15 +171,7 @@ export class RateLimiter {
    const b=await this.state.storage.transaction(async tx=>{const x=await tx.get("inscrapeFreeBudget")||{used:0,reserved:0,cap:100};x.reserved=Math.max(0,x.reserved-reserved);x.used=Math.min(100,x.used+charged);await tx.put("inscrapeFreeBudget",x);return x;});
    return Response.json({used:b.used,reserved:b.reserved,cap:b.cap,remaining:Math.max(0,b.cap-b.used-b.reserved)},{headers:{"cache-control":"no-store"}});
   }
-  if(url.pathname==="/credit-state"){
-   if(request.method!=="GET")return new Response("Method not allowed",{status:405});
-   const state=await this.state.storage.get("creditGuard");
-   const now=Date.now();
-   if(state?.pausedUntil&&state.pausedUntil<=now){await this.state.storage.delete("creditGuard");return Response.json({paused:false},{headers:{"cache-control":"no-store"}});}
-   return Response.json({paused:!!state?.pausedUntil,retryAt:state?.pausedUntil||null},{headers:{"cache-control":"no-store"}});
-  }
-  if(url.pathname==="/credit-state/exhausted"){
-   if(request.method!=="POST")return new Response("Method not allowed",{status:405});
+  if(request.method!=="POST")return new Response("Method not allowed",{status:405});
    const input=await request.json().catch(()=>({}));
    const pauseMs=24*60*60*1000;
    const pausedUntil=Date.now()+pauseMs;
@@ -247,11 +221,17 @@ export default {
     target.search=url.search;
     return withSecurity(Response.redirect(target.toString(),302));
    }
-   if(url.pathname==="/api/health") return json({ok:true,service:"instagram-stories-viewer",provider:"InScrape",apiKeyConfigured:!!env.INSCRAPE_API_KEY,paidFallback:false});
-   if(url.pathname==="/api/status") {
-    const configured=!!env.INSCRAPE_API_KEY;let freeBudget={used:0,reserved:0,cap:100,remaining:100};
-    try{const id=env.RATE_LIMITER.idFromName("inscrape-free-budget-v1"),stub=env.RATE_LIMITER.get(id),r=await stub.fetch("https://rate-limiter.internal/free-budget/state");if(r.ok)freeBudget=await r.json();}catch{}
-    return json({connected:false,provider:"InScrape",apiKeyConfigured:configured,connectionState:configured?"configured_unverified":"missing_key",freeBudget,paidFallback:false,automaticPurchases:false,message:configured?"InScrape Key 已配置；状态检查不消耗 credits，首次真实查询成功后确认连接。":"请在 Cloudflare Worker Secrets 添加 INSCRAPE_API_KEY（sk_ 开头）。"});
+   if(url.pathname==="/api/health") return json({ok:true,service:"instagram-stories-viewer",provider:"Instaloader",paidFallback:false,creditsCharged:0});
+   if(url.pathname==="/api/status"){
+    const configured=!!(env.INSTALOADER_SERVICE_URL&&env.INSTALOADER_SERVICE_TOKEN);
+    if(!configured)return json({connected:false,provider:"Instaloader",configured:false,paidFallback:false,message:"请配置 Cloudflare Worker 的 INSTALOADER_SERVICE_URL 和 INSTALOADER_SERVICE_TOKEN。"});
+    try{
+     const base=new URL(env.INSTALOADER_SERVICE_URL);
+     if(base.protocol!=="https:")throw new Error("HTTPS required");
+     const r=await fetch(new URL("/health",base.origin).toString(),{headers:{"authorization":"Bearer "+env.INSTALOADER_SERVICE_TOKEN},redirect:"error",signal:AbortSignal.timeout(5000)});
+     const d=await r.json().catch(()=>({}));
+     return json({connected:r.ok&&d.ok===true,provider:"Instaloader",configured:true,authenticated:!!d.authenticated,version:d.version||null,paidFallback:false,creditsCharged:0,message:r.ok?"Instaloader Python 服务已连接；Instagram 数据请求仍受 Instagram 自身限流。":"Instaloader Python 服务暂不可用。"});
+    }catch{return json({connected:false,provider:"Instaloader",configured:true,paidFallback:false,creditsCharged:0,message:"无法连接 Instaloader Python 服务，请检查服务地址、Token 和运行状态。"});}
    }
    if(url.pathname==="/api/profile"){
     const profile=cleanProfile(url.searchParams.get("username"));
