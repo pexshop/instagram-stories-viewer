@@ -274,7 +274,7 @@ input:not([type=checkbox]),select,.embed-form input{
 <div class="media-modal" id="mediaModal" role="dialog" aria-modal="true" aria-label="媒体预览">
  <div class="media-modal-card"><div class="media-modal-head"><strong id="mediaModalTitle">Instagram 媒体</strong><button class="media-modal-close" id="mediaModalClose" type="button">关闭 ✕</button></div>
  <div class="media-modal-stage" id="mediaModalStage"><button class="media-modal-nav prev" id="mediaModalPrev" type="button" aria-label="上一条">‹</button><button class="media-modal-nav next" id="mediaModalNext" type="button" aria-label="下一条">›</button></div>
- <div class="media-modal-foot"><span id="mediaModalCount"></span><span>点击关闭返回主页</span></div></div></div>
+ <div class="media-modal-foot" style="display:block"><div id="modalMusicStatus" aria-live="polite" style="font-size:12px;line-height:1.5;margin-bottom:6px;color:#d7d0ff">正在准备音乐识别…</div><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><span id="mediaModalCount"></span><span>点击关闭返回主页</span></div></div></div></div>
 <script>
 const $=id=>document.getElementById(id);let accounts=[],stories=[],index=0,tick=null,paused=false,startAt=0,duration=7000,elapsedBeforePause=0,activeUrl=null,currentProfile="";
 async function api(path,options={}){const controller=new AbortController();const timeout=setTimeout(()=>controller.abort(),18000);try{const r=await fetch(path,{...options,signal:controller.signal,credentials:"same-origin",headers:{"content-type":"application/json",...(options.headers||{})}});const d=await r.json().catch(()=>({}));if(!r.ok)throw Error(d.error||("请求失败（HTTP "+r.status+"）"));return d}catch(e){if(e.name==="AbortError")throw Error("请求超过 18 秒仍未完成，已停止等待。请检查网络或第三方 API 状态。");throw e}finally{clearTimeout(timeout)}}
@@ -360,6 +360,46 @@ document.addEventListener("visibilitychange",()=>{if(document.hidden){if(!paused
 function esc(v){return String(v??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
 let modalItems=[],modalIndex=0,modalProfile="",modalAutoplay=false,modalTimer=null;
 function closeMediaModal(){modalAutoplay=false;if(modalTimer){clearTimeout(modalTimer);modalTimer=null}const modal=$("mediaModal");$("mediaModalStage").querySelectorAll("video").forEach(v=>{v.pause();v.removeAttribute("src");v.load()});modal.classList.remove("open");document.body.style.overflow=""}
+const POST_MUSIC_CACHE_KEY="ig_post_music_cache_v1";
+let modalMusicRequest=0;
+function readPostMusicCache(){try{return JSON.parse(localStorage.getItem(POST_MUSIC_CACHE_KEY)||"{}")}catch{return{}}}
+function writePostMusicCache(cache){try{localStorage.setItem(POST_MUSIC_CACHE_KEY,JSON.stringify(cache))}catch{}}
+async function autoDetectViewedPostMusic(item){
+ const box=$("modalMusicStatus");if(!box)return;
+ const permalink=String(item?.permalink||"").trim();
+ const request=++modalMusicRequest;
+ if(!permalink){box.textContent="音乐识别：该媒体没有可用的帖子链接，暂时无法自动检测。";return}
+ const cache=readPostMusicCache(),cached=cache[permalink];
+ if(cached&&Date.now()-cached.savedAt<86400000){showModalPostMusic(cached.data,box);return}
+ box.textContent="♫ 正在自动识别这条帖子的音乐…";
+ try{
+  const data=await api("/api/media/music?media="+encodeURIComponent(permalink));
+  if(request!==modalMusicRequest||!$("mediaModal").classList.contains("open"))return;
+  cache[permalink]={savedAt:Date.now(),data};writePostMusicCache(cache);
+  showModalPostMusic(data,box);
+ }catch(e){
+  if(request!==modalMusicRequest)return;
+  box.textContent="音乐识别暂时失败："+e.message;
+ }
+}
+function showModalPostMusic(data,box){
+ box.replaceChildren();
+ const audio=data?.audio;
+ const line=document.createElement("span");
+ line.textContent=audio?.title||"未检测到音乐信息";
+ line.style.fontWeight="700";
+ box.append("♫ 音乐识别：",line);
+ const detail=document.createElement("span");
+ detail.style.opacity=".82";
+ detail.textContent=audio?( " · "+(audio.artist||(audio.artistHandle?"@"+audio.artistHandle:""))+" · "+(audio.isOriginal?"原创音频":"Instagram 音乐")):" · Instagram 未提供音频元数据";
+ box.append(detail);
+ if(audio?.id){
+  const link=document.createElement("a");link.href="https://www.instagram.com/reels/audio/"+encodeURIComponent(audio.id)+"/";link.target="_blank";link.rel="noopener noreferrer";link.textContent=" · 打开音频";link.style.color="#c8baff";box.append(link);
+ }
+ if(audio?.title&&audio.title!=="Original audio"){
+  const link=document.createElement("a");link.href="https://open.spotify.com/search/"+encodeURIComponent([audio.title,audio.artist].filter(Boolean).join(" "));link.target="_blank";link.rel="noopener noreferrer";link.textContent=" · Spotify 搜索";link.style.color="#c8baff";box.append(link);
+ }
+}
 function renderMediaModal(){
  if(modalTimer){clearTimeout(modalTimer);modalTimer=null}const item=modalItems[modalIndex];if(!item)return;const stage=$("mediaModalStage");
  stage.querySelectorAll("img,video").forEach(el=>el.remove());
@@ -370,6 +410,7 @@ function renderMediaModal(){
  $("mediaModalTitle").textContent="@"+modalProfile+(isVideo?" · 视频":" · 图片");
  $("mediaModalCount").textContent=(modalIndex+1)+" / "+modalItems.length;
  $("mediaModalPrev").disabled=modalItems.length<2;$("mediaModalNext").disabled=modalItems.length<2;
+ autoDetectViewedPostMusic(item);
 }
 function openMediaModal(items,i,p,autoplay=false){modalItems=items||[];modalIndex=i;modalProfile=p||"instagram";modalAutoplay=autoplay;$("mediaModal").classList.add("open");document.body.style.overflow="hidden";renderMediaModal()}
 async function advanceHistoryPostPlayback(){
