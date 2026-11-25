@@ -41,9 +41,9 @@ export default {
   const url=new URL(request.url);
   try{
    if(url.pathname==="/spotify/callback"){
-    if(!env.ASSETS) return new Response("Static assets binding missing",{status:500});
-    const assetUrl=new URL("/spotify-player.html",url);assetUrl.search=url.search;
-    return env.ASSETS.fetch(new Request(assetUrl.toString(),request));
+    const target=new URL("/spotify-player.html",url);
+    target.search=url.search;
+    return Response.redirect(target.toString(),302);
    }
    if(url.pathname==="/api/health") return json({ok:true,service:"instagram-stories-viewer",provider:"Social Fetch",apiKeyConfigured:!!env.SOCIALFETCH_API_KEY});
    if(url.pathname==="/api/status") { const configured=!!env.SOCIALFETCH_API_KEY; return json({connected:configured,provider:"Social Fetch",apiKeyConfigured:configured,connectionState:configured?"configured":"missing_key",requiresMetaLogin:false}); }
