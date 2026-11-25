@@ -480,13 +480,31 @@ async function searchHashtags(){
  }catch(e){box.textContent=e.message}
 }
 async function detectPostMusic(){
- const input=$("musicDetectUrl"),box=$("musicDetectResults"),media=input.value.trim();
- if(!media){msg("请先粘贴 Instagram 帖子或 Reels 链接。");return}
- box.textContent="正在检测帖子音乐…";
+ const input=$("musicDetectUrl"),box=$("musicDetectResults"),button=$("detectPostMusic");
+ const media=input?.value?.trim()||"";
+ if(!box||!button)return;
+ if(!media){
+  box.textContent="请先粘贴公开 Instagram 帖子或 Reels 链接，再点击检测音乐。";
+  input?.focus();
+  return;
+ }
+ let parsed;
+ try{parsed=new URL(media)}catch{box.textContent="链接格式不正确。请粘贴完整的 https://www.instagram.com/p/… 或 /reel/… 链接。";input?.focus();return}
+ if(!/(^|\\.)instagram\\.com$/i.test(parsed.hostname)||!/^\\/(p|reel|tv)\\//i.test(parsed.pathname)){
+  box.textContent="目前只支持 Instagram 公开帖子或 Reels 的完整链接（/p/、/reel/ 或 /tv/）。";
+  return;
+ }
+ button.disabled=true;
+ const oldLabel=button.textContent;
+ button.textContent="正在检测…";
+ box.textContent="正在连接音乐识别服务，请稍候…";
  try{
-  const d=await api("/api/media/music?media="+encodeURIComponent(media));
+  const d=await api("/api/media/music?media="+encodeURIComponent(parsed.href));
   box.replaceChildren();
-  if(d.lookupStatus!=="found"||!d.post){box.textContent="没有找到公开帖子。请检查链接，或确认帖子没有删除且账号公开。";return}
+  if(!d.post){
+   box.textContent=d.lookupStatus==="private"?"该帖子属于私密账号，无法读取。": "没有找到公开帖子。请确认链接有效、帖子未删除且账号公开。";
+   return;
+  }
   const audio=d.audio;
   const card=document.createElement("div");card.className="result-card";card.style.alignItems="flex-start";
   const info=document.createElement("div");info.style.minWidth="0";info.style.width="100%";
@@ -498,13 +516,17 @@ async function detectPostMusic(){
   if(audio?.id){
    const audioLink=document.createElement("a");audioLink.href="https://www.instagram.com/reels/audio/"+encodeURIComponent(audio.id)+"/";audioLink.target="_blank";audioLink.rel="noopener noreferrer";audioLink.className="secondary";audioLink.style.display="inline-block";audioLink.style.textDecoration="none";audioLink.textContent="打开 Instagram 音频页面";info.append(audioLink);
   }
-  if(audio?.title&&audio?.title!=="Original audio"){
+  if(audio?.title&&audio.title!=="Original audio"){
    const spotify=document.createElement("a");spotify.href="https://open.spotify.com/search/"+encodeURIComponent([audio.title,audio.artist].filter(Boolean).join(" "));spotify.target="_blank";spotify.rel="noopener noreferrer";spotify.className="secondary";spotify.style.display="inline-block";spotify.style.textDecoration="none";spotify.style.marginLeft="7px";spotify.textContent="在 Spotify 搜索";info.append(spotify);
   }
   card.append(info);box.append(card);
   const post=document.createElement("p");post.className="profile-note";post.textContent=(d.post.owner?.handle?"帖子账号：@"+d.post.owner.handle+" · ":"")+"检测完成 · "+(d.creditsCharged??"?")+" credit"+(d.stale?" · 使用缓存结果":"");box.append(post);
-  if(!audio)msg("帖子已找到，但 Instagram 没有提供可识别的音乐信息。");else msg("音乐检测完成。");
- }catch(e){box.textContent=e.message;msg(e.message)}
+ }catch(e){
+  box.textContent="检测失败："+(e?.message||"未知错误")+"。请稍后重试。";
+ }finally{
+  button.disabled=false;
+  button.textContent=oldLabel;
+ }
 }
 async function lookupMediaList(kind){
  const media=$("mediaLookupUrl").value.trim();if(!media){msg("请粘贴公开帖子或 Reels 链接。");return}
