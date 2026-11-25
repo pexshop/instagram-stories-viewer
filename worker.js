@@ -211,7 +211,7 @@ export default {
     const profile=cleanProfile(url.searchParams.get("username"));
     const result=await social("/v2/instagram/profiles/"+encodeURIComponent(profile)+"?include=recentMedia,about",env);
     const d=result.data||{};
-    return json({username:profile,lookupStatus:d.lookupStatus||"unknown",profile:d.profile||null,recentMedia:normalize(d.recentMedia),about:d.about||null,creditsCharged:result.meta?.creditsCharged??null,stale:!!result.meta?.stale});
+    return json({username:profile,lookupStatus:d.lookupStatus||"unknown",profile:d.profile||null,recentMedia:normalize(d.recentMedia||d.posts),about:d.about||null,creditsCharged:result.meta?.creditsCharged??null,stale:!!result.meta?.stale});
    }
    if(url.pathname==="/api/trending/reels"){
     const result=await social("/v2/instagram/reels/trending",env);
@@ -233,7 +233,7 @@ export default {
     const qs=new URLSearchParams({tab});if(cursor)qs.set("cursor",cursor);
     const result=await social("/v2/instagram/hashtags/"+encodeURIComponent(hashtag)+"/media?"+qs.toString(),env);
     const d=result.data||{};
-    return json({media:normalize(d.media),page:d.page||null,creditsCharged:result.meta?.creditsCharged??null});
+    return json({media:normalize(d.media||d.posts),page:d.page||null,creditsCharged:result.meta?.creditsCharged??null});
    }
    if(url.pathname==="/api/search/profiles"){
     const query=String(url.searchParams.get("query")||"").trim();
@@ -275,7 +275,7 @@ export default {
     const profile=cleanProfile(url.searchParams.get("username"));
     const result=await social("/v2/instagram/profiles/"+encodeURIComponent(profile)+"/stories",env);
     const d=result.data||{};
-    return json({username:profile,lookupStatus:d.lookupStatus||"unknown",stories:normalize(d.media),creditsCharged:result.meta?.creditsCharged??null,stale:!!result.meta?.stale,fetchedAt:result.meta?.fetchedAt||null});
+    return json({username:profile,lookupStatus:d.lookupStatus||"unknown",stories:normalize(d.media||d.stories),creditsCharged:result.meta?.creditsCharged??null,stale:!!result.meta?.stale,fetchedAt:result.meta?.fetchedAt||null});
    }
    if(url.pathname==="/api/highlights"){
     const profile=cleanProfile(url.searchParams.get("username"));
@@ -295,7 +295,7 @@ export default {
     const tab=["posts","reels"].includes(url.searchParams.get("tab"))?url.searchParams.get("tab"):"posts";
     const result=await social("/v2/instagram/profiles/"+encodeURIComponent(profile)+"/media?tab="+tab,env);
     const d=result.data||{};
-    return json({username:profile,lookupStatus:d.lookupStatus||"unknown",media:normalize(d.media),page:d.page||null,creditsCharged:result.meta?.creditsCharged??null});
+    return json({username:profile,lookupStatus:d.lookupStatus||"unknown",media:normalize(d.media||d.posts||d.reels),page:d.page||null,creditsCharged:result.meta?.creditsCharged??null});
    }
    if(url.pathname.startsWith("/api/")) return json({error:"Not found"},404);
    return env.ASSETS?await secureAssetResponse(await env.ASSETS.fetch(request)):withSecurity(new Response("Static assets binding missing",{status:500}));
