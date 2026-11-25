@@ -32,6 +32,12 @@ export default {
   try{
    if(url.pathname==="/api/health") return json({ok:true,service:"instagram-stories-viewer",provider:"Social Fetch",apiKeyConfigured:!!env.SOCIALFETCH_API_KEY});
    if(url.pathname==="/api/status") return json({connected:false,provider:"Social Fetch",apiKeyConfigured:!!env.SOCIALFETCH_API_KEY,requiresMetaLogin:false});
+   if(url.pathname==="/api/profile"){
+    const profile=cleanProfile(url.searchParams.get("username"));
+    const result=await social("/v2/instagram/profiles/"+encodeURIComponent(profile)+"?include=recentMedia,about",env);
+    const d=result.data||{};
+    return json({username:profile,lookupStatus:d.lookupStatus||"unknown",profile:d.profile||null,recentMedia:normalize(d.recentMedia),about:d.about||null,creditsCharged:result.meta?.creditsCharged??null,stale:!!result.meta?.stale});
+   }
    if(url.pathname==="/api/stories"){
     const profile=cleanProfile(url.searchParams.get("username"));
     const result=await social("/v2/instagram/profiles/"+encodeURIComponent(profile)+"/stories",env);
