@@ -132,6 +132,11 @@ async function social(path,env){
  }
  let data;
  try{data=JSON.parse(body)}catch{
+  if(response.status===402){
+   try{await providerCreditState(env,"exhausted");}catch{}
+   const error=new Error("第三方 API 额度已耗尽，已自动暂停请求以避免继续消耗。");
+   error.status=503;throw error;
+  }
   const error=new Error("第三方服务返回了无效数据。");error.status=502;throw error;
  }
  if(!response.ok){
