@@ -65,7 +65,7 @@ function load(raw,quiet){
  const item=parseLink(raw);last=item.id;saveState(raw);
  const frame=document.createElement("iframe");
  frame.title="Spotify 官方嵌入播放器";
- frame.src="https://open.spotify.com/embed/"+item.type+"/"+encodeURIComponent(item.id)+"?utm_source=generator&theme=0";
+ frame.src="https://open.spotify.com/embed/"+item.type+"/"+encodeURIComponent(item.id)+"?utm_source=generator&theme=0&autoplay=1";
  frame.width="100%";frame.height=(item.type==="track"||item.type==="episode")?"152":"352";
  frame.allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture";
  frame.loading="lazy";frame.referrerPolicy="strict-origin-when-cross-origin";
@@ -75,8 +75,8 @@ function load(raw,quiet){
 $("load").addEventListener("click",()=>{try{load($("spotifyLink").value);}catch(e){say(e.message,true);}});
 $("resume").addEventListener("click",()=>{try{const raw=$("spotifyLink").value.trim();if(!raw)throw new Error("没有保存的歌曲链接，请重新粘贴 Spotify 链接。");load(raw);say("播放器已重新载入。请手动点击播放；iPhone 返回浏览器后可能需要重新开始播放。");}catch(e){say(e.message,true);}});
 $("playlistLinks").addEventListener("input",()=>{try{localStorage.setItem(STORE_KEY,JSON.stringify({link:$("spotifyLink").value,playlist:$("playlistLinks").value}));}catch(e){}});
-try{const saved=JSON.parse(localStorage.getItem(STORE_KEY)||"null");if(saved){if(saved.playlist)$("playlistLinks").value=saved.playlist;if(saved.link){$("spotifyLink").value=saved.link;load(saved.link,true);say("已恢复上次载入的歌曲。若没有声音，请点击“恢复上次播放器”后再按播放。");}}}catch(e){}
-window.addEventListener("pageshow",()=>{try{const saved=JSON.parse(localStorage.getItem(STORE_KEY)||"null");if(saved&&saved.link&&!$("embed").querySelector("iframe")){ $("spotifyLink").value=saved.link;load(saved.link,true);say("已恢复播放器页面；请手动点击播放。");}}catch(e){}});
+try{const saved=JSON.parse(localStorage.getItem(STORE_KEY)||"null");if(saved){if(saved.playlist)$("playlistLinks").value=saved.playlist;if(saved.link){$("spotifyLink").value=saved.link;load(saved.link,true);say("已自动载入上次歌曲并尝试自动播放；若浏览器阻止声音，请点击播放按钮。");}}}catch(e){}
+window.addEventListener("pageshow",()=>{try{const saved=JSON.parse(localStorage.getItem(STORE_KEY)||"null");if(saved&&saved.link&&!$("embed").querySelector("iframe")){ $("spotifyLink").value=saved.link;load(saved.link,true);say("已自动恢复上次歌曲并尝试播放；若没有声音，请点击播放器中的播放按钮。");}}catch(e){}});
 $("search").addEventListener("click",()=>{
  const q=$("spotifyLink").value.trim();
  const target="https://open.spotify.com/search/"+encodeURIComponent(q||"Justin%20Bieber");
