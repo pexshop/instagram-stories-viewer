@@ -172,7 +172,44 @@ html{scroll-behavior:smooth;scroll-padding-top:116px}
 
 /* Follower feed */
 .follower-feed{margin-top:18px}.feed-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}.feed-heading h2{font-size:18px;margin:0}.feed-actions{display:flex;gap:8px;flex-wrap:wrap;margin:12px 0}.feed-list{display:grid;gap:14px;margin-top:12px}.feed-account{border:1px solid #ffffff20;border-radius:13px;padding:12px;background:#ffffff05}.feed-account-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px}.feed-account-head a{color:inherit;text-decoration:none;font-weight:750}.feed-media-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.feed-media{position:relative;aspect-ratio:1;border:0;border-radius:8px;padding:0;overflow:hidden;background:#222;cursor:pointer}.feed-media img{width:100%;height:100%;object-fit:cover;display:block}.feed-media span{position:absolute;right:5px;bottom:5px;background:#000b;color:#fff;padding:3px 5px;border-radius:5px;font-size:10px}.feed-caption{font-size:12px;color:#bbb;line-height:1.45;margin-top:8px;overflow-wrap:anywhere}.feed-time{font-size:10px;color:#888;margin-top:5px}@media(max-width:600px){.follower-feed{padding:13px}.feed-account{padding:9px}.feed-media-grid{gap:4px}}
-</style></head><body>
+</style><style id="transparent-performance-final">
+/* Transparent surfaces: preserve the space scene across every page section. */
+html,body{background:transparent!important}
+header,.tool-top-nav{background:rgba(3,5,12,.16)!important;border-color:rgba(190,210,255,.12)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+.panel,.embed-card,.profile-view,.viewer,.notice,.followers-box,.follower-card,.profile-tile,.simple-more,.settings-more,.history-more{
+ background:rgba(4,7,16,.12)!important;
+ border-color:rgba(190,210,255,.16)!important;
+ box-shadow:none!important;
+ backdrop-filter:none!important;-webkit-backdrop-filter:none!important
+}
+.viewer,.stage{background:rgba(0,0,0,.12)!important}
+.profile-link,.secondary,.tool-top-nav a,.glass,.btn,.media-modal-close,.media-modal-nav{
+ background:rgba(5,8,18,.20)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important
+}
+input:not([type=checkbox]),select,.embed-form input{
+ background:rgba(4,7,16,.38)!important;color:#fff!important;border-color:rgba(190,210,255,.24)!important
+}
+.panel h2,.profile-view h2,.embed-card h2,.followers-head h3,.field,.simple-more>summary,.settings-more>summary,.history-more>summary{color:#f4f6ff!important;text-shadow:0 1px 5px #000}
+.panel p,.profile-view>p,.embed-card p,.profile-note,.sub,.status,.small,.profile-meta,.profile-handle{color:rgba(235,239,255,.78)!important;text-shadow:0 1px 5px #000}
+.embed-item{background:rgba(255,255,255,.92)!important}
+.media-modal{background:rgba(0,0,0,.34)!important;backdrop-filter:none!important}
+.media-modal-card{background:rgba(4,7,16,.52)!important;backdrop-filter:none!important}
+#nebulaMotion{animation:none!important;filter:none!important;opacity:.12!important;transform:none!important}
+#galaxyPhoto{opacity:.10!important;filter:none!important}
+#spacePhoto{filter:none!important}
+#textParticles{display:none!important}
+#starfield{opacity:.55!important}
+.site-motion-text{animation:siteTextLowCost 14s ease-in-out infinite!important;will-change:auto!important;text-shadow:0 1px 5px #000!important}
+@media(max-width:760px){
+ #spacePhoto{background-position:52% center}
+ #galaxyPhoto{opacity:.07!important}
+ #starfield{opacity:.42!important}
+ .panel,.embed-card,.profile-view,.viewer,.notice,.followers-box,.follower-card,.profile-tile{background:rgba(4,7,16,.10)!important}
+ .tool-top-nav{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
+}
+@media(prefers-reduced-motion:reduce){.site-motion-text{animation:none!important;opacity:1!important}}
+</style>
+</head><body>
 <div id="spacePhoto" aria-hidden="true"></div>
 <div id="galaxyPhoto" aria-hidden="true"></div>
 <div id="nebulaMotion" aria-hidden="true"></div>
@@ -643,86 +680,7 @@ status();
  else {if(lowPower)canvas.style.display="none";start();}
 })();
 </script>
-<script>
 
-/* Animate every visible interface text node, including content added later by chat/feed updates. */
-(()=>{
- const skip=new Set(["SCRIPT","STYLE","NOSCRIPT","TEXTAREA","CANVAS","SVG"]);
- const walkerRoot=document.body;
- function decorateText(node){
-  if(!node||node.nodeType!==Node.TEXT_NODE||!node.nodeValue.trim()||!/[A-Za-z]/.test(node.nodeValue))return;
-  const parent=node.parentElement;
-  if(!parent||skip.has(parent.tagName)||parent.closest("#ambientText,.brandmark,.site-motion-text,[aria-hidden='true']"))return;
-  const span=document.createElement("span");
-  span.className="site-motion-text";
-  span.textContent=node.nodeValue;
-  span.dataset.motionText=node.nodeValue;
-  node.parentNode.replaceChild(span,node);
- }
- function scan(root){
-  if(!root)return;
-  if(root.nodeType===Node.TEXT_NODE){decorateText(root);return;}
-  if(root.nodeType!==Node.ELEMENT_NODE&&root!==document.body)return;
-  if(root.nodeType===Node.ELEMENT_NODE&&(skip.has(root.tagName)||root.classList.contains("site-motion-text")||root.closest(".site-motion-text")))return;
-  const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT);
-  const nodes=[];let current;
-  while((current=walker.nextNode()))if(!current.parentElement?.closest(".site-motion-text"))nodes.push(current);
-  nodes.forEach(decorateText);
- }
- scan(walkerRoot);
- const observer=new MutationObserver(records=>{
-  for(const record of records){
-   if(record.type==="characterData"){
-    const span=record.target.parentElement;
-    if(span&&span.classList.contains("site-motion-text"))span.dataset.motionText=record.target.nodeValue;
-    else decorateText(record.target);
-   }
-   for(const node of record.addedNodes||[])scan(node);
-  }
- });
- observer.observe(walkerRoot,{subtree:true,childList:true,characterData:true});
-})();
-
-</script>
-<script>
-/* Low-overhead ambient text: keep the central typewriter, avoid wrapping every text node. */
-</script>
 
 </body></html>
-<style id="transparent-performance-final">
-/* Transparent surfaces: preserve the space scene across every page section. */
-html,body{background:transparent!important}
-header,.tool-top-nav{background:rgba(3,5,12,.16)!important;border-color:rgba(190,210,255,.12)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-.panel,.embed-card,.profile-view,.viewer,.notice,.followers-box,.follower-card,.profile-tile,.simple-more,.settings-more,.history-more{
- background:rgba(4,7,16,.12)!important;
- border-color:rgba(190,210,255,.16)!important;
- box-shadow:none!important;
- backdrop-filter:none!important;-webkit-backdrop-filter:none!important
-}
-.viewer,.stage{background:rgba(0,0,0,.12)!important}
-.profile-link,.secondary,.tool-top-nav a,.glass,.btn,.media-modal-close,.media-modal-nav{
- background:rgba(5,8,18,.20)!important;backdrop-filter:none!important;-webkit-backdrop-filter:none!important
-}
-input:not([type=checkbox]),select,.embed-form input{
- background:rgba(4,7,16,.38)!important;color:#fff!important;border-color:rgba(190,210,255,.24)!important
-}
-.panel h2,.profile-view h2,.embed-card h2,.followers-head h3,.field,.simple-more>summary,.settings-more>summary,.history-more>summary{color:#f4f6ff!important;text-shadow:0 1px 5px #000}
-.panel p,.profile-view>p,.embed-card p,.profile-note,.sub,.status,.small,.profile-meta,.profile-handle{color:rgba(235,239,255,.78)!important;text-shadow:0 1px 5px #000}
-.embed-item{background:rgba(255,255,255,.92)!important}
-.media-modal{background:rgba(0,0,0,.34)!important;backdrop-filter:none!important}
-.media-modal-card{background:rgba(4,7,16,.52)!important;backdrop-filter:none!important}
-#nebulaMotion{animation:none!important;filter:none!important;opacity:.12!important;transform:none!important}
-#galaxyPhoto{opacity:.10!important;filter:none!important}
-#spacePhoto{filter:none!important}
-#textParticles{display:none!important}
-#starfield{opacity:.55!important}
-.site-motion-text{animation:siteTextLowCost 14s ease-in-out infinite!important;will-change:auto!important;text-shadow:0 1px 5px #000!important}
-@media(max-width:760px){
- #spacePhoto{background-position:52% center}
- #galaxyPhoto{opacity:.07!important}
- #starfield{opacity:.42!important}
- .panel,.embed-card,.profile-view,.viewer,.notice,.followers-box,.follower-card,.profile-tile{background:rgba(4,7,16,.10)!important}
- .tool-top-nav{backdrop-filter:none!important;-webkit-backdrop-filter:none!important}
-}
-@media(prefers-reduced-motion:reduce){.site-motion-text{animation:none!important;opacity:1!important}}
-</style>
+
