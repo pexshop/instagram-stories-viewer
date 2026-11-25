@@ -1,17 +1,40 @@
 const SECURITY_HEADERS={
  "X-Content-Type-Options":"nosniff",
  "X-Frame-Options":"DENY",
- "Referrer-Policy":"strict-origin-when-cross-origin",
- "Permissions-Policy":"camera=(), microphone=(), geolocation=(), payment=(), usb=()",
+ "Referrer-Policy":"strict-origin",
+ "Permissions-Policy":"camera=(), microphone=(), geolocation=(), payment=(), usb=(), browsing-topics=()",
  "Cross-Origin-Opener-Policy":"same-origin",
- "Strict-Transport-Security":"max-age=31536000; includeSubDomains",
- "Content-Security-Policy":"default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; script-src 'self' 'unsafe-inline' https://www.instagram.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob: https:; font-src 'self' data: https:; connect-src 'self'; frame-src 'self' https://www.instagram.com https://open.spotify.com"
+ "X-Permitted-Cross-Domain-Policies":"none",
+ "Origin-Agent-Cluster":"?1",
+ "Strict-Transport-Security":"max-age=31536000; includeSubDomains"
 };
 const rateBuckets=new Map();
-function withSecurity(response){
+function nonceValue(){
+ const bytes=new Uint8Array(18);crypto.getRandomValues(bytes);
+ return btoa(String.fromCharCode(...bytes));
+}
+function withSecurity(response,nonce=null){
  const headers=new Headers(response.headers);
  for(const [k,v] of Object.entries(SECURITY_HEADERS))headers.set(k,v);
+ const scriptPolicy=nonce
+  ? `script-src 'self' 'nonce-${nonce}' https://www.instagram.com`
+  : "script-src 'self' https://www.instagram.com";
+ headers.set("Content-Security-Policy",`default-src 'self'; base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self'; ${scriptPolicy}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://*.cdninstagram.com https://*.fbcdn.net https://assets.science.nasa.gov; media-src 'self' blob: https://*.cdninstagram.com https://*.fbcdn.net; font-src 'self' data:; connect-src 'self'; frame-src https://www.instagram.com https://open.spotify.com; upgrade-insecure-requests`);
  return new Response(response.body,{status:response.status,statusText:response.statusText,headers});
+}
+async function secureAssetResponse(response){
+ if(!response.ok)return withSecurity(response);
+ const type=response.headers.get("content-type")||"";
+ if(!type.toLowerCase().includes("text/html"))return withSecurity(response);
+ const nonce=nonceValue();
+ const html=await response.text();
+ const secured=html.replace(/<script\\b/gi,match=>match+` nonce="${nonce}"`);
+ const headers=new Headers(response.headers);
+ headers.set("Cache-Control","no-store, max-age=0");
+ headers.set("Pragma","no-cache");
+ headers.delete("ETag");
+ headers.delete("Last-Modified");
+ return withSecurity(new Response(secured,{status:response.status,statusText:response.statusText,headers}),nonce);
 }
 const json=(data,status=200)=>withSecurity(new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store","pragma":"no-cache"}}));
 function rateLimit(request,path){
@@ -185,7 +208,7 @@ export default {
     return json({username:profile,lookupStatus:d.lookupStatus||"unknown",media:normalize(d.media),page:d.page||null,creditsCharged:result.meta?.creditsCharged??null});
    }
    if(url.pathname.startsWith("/api/")) return json({error:"Not found"},404);
-   return env.ASSETS?withSecurity(await env.ASSETS.fetch(request)):withSecurity(new Response("Static assets binding missing",{status:500}));
+   return env.ASSETS?await secureAssetResponse(await env.ASSETS.fetch(request)):withSecurity(new Response("Static assets binding missing",{status:500}));
   }catch(e){const status=Number.isInteger(e.status)?e.status:400;return url.pathname.startsWith("/api/")?json({error:e.message||"请求失败"},status):withSecurity(new Response("服务暂时不可用",{status:503}));}
  }
 };
