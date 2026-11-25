@@ -22,16 +22,18 @@ async function social(path,env){
  return data;
 }
 function normalize(items){
- return (items||[]).map(x=>({
-  id:x.id,
-  media_type:String(x.mediaType||"").toLowerCase()==="video"?"VIDEO":"IMAGE",
-  media_url:x.videoUrl||x.imageUrl||x.thumbnailUrl||"",
-  thumbnail_url:x.thumbnailUrl||x.imageUrl||"",
+ const one=x=>({
+  id:x.id||null,
+  media_type:String(x.mediaType||"").toLowerCase()==="video"?"VIDEO":String(x.mediaType||"").toLowerCase()==="carousel"?"CAROUSEL":"IMAGE",
+  media_url:x.videoUrl||x.imageUrl||x.thumbnailUrl||x.carousel?.[0]?.videoUrl||x.carousel?.[0]?.imageUrl||"",
+  thumbnail_url:x.thumbnailUrl||x.imageUrl||x.carousel?.[0]?.imageUrl||x.carousel?.[0]?.videoUrl||"",
   timestamp:x.createdAt||x.story?.expiresAt||null,
   permalink:x.url||null,
-  caption:x.caption||"",
-  kind:x.kind||"story"
- })).filter(x=>x.media_url||x.thumbnail_url);
+  caption:x.caption||x.altText||"",
+  kind:x.kind||"post",
+  carousel:Array.isArray(x.carousel)?x.carousel.map((c,i)=>({id:c.id||String(i),media_type:String(c.mediaType||"").toLowerCase()==="video"?"VIDEO":"IMAGE",media_url:c.videoUrl||c.imageUrl||"",thumbnail_url:c.imageUrl||c.videoUrl||"",caption:c.altText||x.caption||"",timestamp:x.createdAt||null,permalink:x.url||null,kind:"carousel"})).filter(c=>c.media_url||c.thumbnail_url):[]
+ });
+ return (items||[]).map(one).filter(x=>x.media_url||x.thumbnail_url||x.carousel.length);
 }
 export default {
  async fetch(request,env){
