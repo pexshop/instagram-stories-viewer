@@ -359,7 +359,7 @@ function addManualFollower(){
  const field=$("manualFollowerInput");
  if(!field){msg("找不到用户名输入框，请刷新页面后重试。");return}
  let raw=field.value.trim();
- const urlMatch=raw.match(/(?:https?:\\/\\/)?(?:www\\.)?instagram\\.com\\/([^/?#]+)/i);
+  const urlMatch=raw.match(/(?:https?:\/\/)?(?:www\.)?instagram\.com\/([^/?#]+)/i);
  const p=(urlMatch?urlMatch[1]:raw).replace(/^@/,"").trim();
  if(!/^[A-Za-z0-9._]{1,30}$/.test(p)){msg("请输入有效用户名，例如 nasa 或 @nasa，也可以粘贴 Instagram 主页链接。");field.focus();return}
  const items=readManualFollowers();
