@@ -259,7 +259,19 @@ function renderManualFollowers(){
   row.append(info,open,remove);box.append(row);
  });
 }
-function saveManualFollowers(items){try{localStorage.setItem(MANUAL_FOLLOWERS_KEY,JSON.stringify(items));renderManualFollowers()}catch{msg("浏览器存储不可用，无法保存名单。")}}
+function saveManualFollowers(items){
+ try{
+  const clean=items.filter(x=>typeof x==="string"&&/^[A-Za-z0-9._]{1,30}$/.test(x));
+  localStorage.setItem(MANUAL_FOLLOWERS_KEY,JSON.stringify(clean));
+  const check=JSON.parse(localStorage.getItem(MANUAL_FOLLOWERS_KEY)||"null");
+  if(!Array.isArray(check)||check.length!==clean.length)throw new Error("保存校验失败");
+  renderManualFollowers();
+  return true;
+ }catch(e){
+  msg("保存失败：Safari 当前浏览模式可能禁止本地存储。请退出无痕浏览，或允许网站使用网站数据后重试。");
+  return false;
+ }
+}
 
 let followerFeedOffset=0,followerFeedBusy=false;
 const FOLLOWER_FEED_BATCH=20;
@@ -307,12 +319,18 @@ async function loadFollowerFeed(reset=false){
 }
 
 function addManualFollower(){
- const field=$("manualFollowerInput"),p=field.value.trim().replace(/^@/,"");
- if(!/^[A-Za-z0-9._]{1,30}$/.test(p)){msg("请输入有效的 Instagram 用户名（1–30 位字母、数字、点或下划线）。");return}
+ const field=$("manualFollowerInput");
+ if(!field){msg("找不到用户名输入框，请刷新页面后重试。");return}
+ let raw=field.value.trim();
+ const urlMatch=raw.match(/(?:https?:\\/\\/)?(?:www\\.)?instagram\\.com\\/([^/?#]+)/i);
+ const p=(urlMatch?urlMatch[1]:raw).replace(/^@/,"").trim();
+ if(!/^[A-Za-z0-9._]{1,30}$/.test(p)){msg("请输入有效用户名，例如 nasa 或 @nasa，也可以粘贴 Instagram 主页链接。");field.focus();return}
  const items=readManualFollowers();
- if(items.some(x=>x.toLowerCase()===p.toLowerCase())){msg("这个用户名已经在名单中。");return}
+ if(items.some(x=>x.toLowerCase()===p.toLowerCase())){msg("@" + p + " 已经在名单中。");return}
  if(items.length>=500){msg("名单最多保存 500 个账号。");return}
- saveManualFollowers([p,...items]);field.value="";msg("已添加 @"+p+" 到本机关注者名单。");
+ if(!saveManualFollowers([p,...items]))return;
+ field.value="";
+ msg("添加成功：@" + p + "，已保存到当前 iPhone 浏览器。");
 }
 
 function setStatus(t){$("status").textContent=t}
@@ -453,7 +471,10 @@ async function lookupMediaList(kind){
 }
 $("loadProfile").onclick=loadProfile;$("searchProfiles").onclick=searchProfiles;$("loadTrendingReels").onclick=loadTrendingReels;$("searchHashtags").onclick=searchHashtags;$("hashtagQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchHashtags()});$("profileSearchQuery").addEventListener("keydown",e=>{if(e.key==="Enter")searchProfiles()});$("loadComments").onclick=()=>lookupMediaList("comments");$("loadLikers").onclick=()=>lookupMediaList("likers");
 $("loadFollowers").onclick=()=>loadFollowers(true);$("moreFollowers").onclick=()=>loadFollowers(false);
-$("addFollower").onclick=addManualFollower;$("manualFollowerInput").addEventListener("keydown",e=>{if(e.key==="Enter")addManualFollower()});renderManualFollowers();
+const addFollowerButton=$("addFollower"),manualFollowerField=$("manualFollowerInput");
+if(addFollowerButton)addFollowerButton.addEventListener("click",addManualFollower);
+if(manualFollowerField)manualFollowerField.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();addManualFollower()}});
+renderManualFollowers();
 
 status();
 </script>
