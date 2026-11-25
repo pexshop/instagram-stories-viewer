@@ -99,65 +99,62 @@ async function providerCreditState(env,action=null){
  if(!response.ok)throw badRequest("第三方额度保护状态暂不可用。");
  return response.json();
 }
+function inscrapeMedia(x){
+ const f=x?.firstMedia?.[0]||x?.carouselMedia?.[0]||{};
+ const carousel=Array.isArray(x?.carouselMedia)?x.carouselMedia.map((c,i)=>({id:c.id||String(i),mediaType:c.videoUrl?"video":"image",videoUrl:c.videoUrl||null,imageUrl:c.url||null,thumbnailUrl:c.url||c.videoUrl||null,caption:x.caption||"",createdAt:x.post_timestamp||null,url:x.postLink||null})):undefined;
+ return {...x,mediaType:(x?.mediaType===2||x?.product_type==="clips"||x?.videoUrl||f.videoUrl)?"video":"image",videoUrl:x?.videoUrl||f.videoUrl||null,imageUrl:x?.imageUrl||f.url||null,thumbnailUrl:x?.thumbnailUrl||f.url||f.videoUrl||null,createdAt:x?.createdAt||x?.post_timestamp||x?.takenAt||x?.taken_at||null,url:x?.url||x?.postLink||null,carousel};
+}
+function inscrapeAccount(x){return {handle:x?.handle||x?.username||x?.user?.username||"",displayName:x?.display_name||x?.full_name||x?.username||"",avatarUrl:x?.profile_pic_url||x?.avatarUrl||"",verified:!!(x?.is_verified||x?.isVerified)};}
+function unsupportedFreeFeature(msg){const e=new Error(msg);e.status=501;return e;}
 async function social(path,env){
- if(!env.SOCIALFETCH_API_KEY){
-  const error=new Error("第三方服务尚未配置，请联系网站管理员。");error.status=503;throw error;
- }
- if(typeof path!=="string"||!path.startsWith("/v2/instagram/")||path.includes("..")||path.length>1800){
-  const error=new Error("无效的上游请求。");error.status=400;throw error;
- }
- let guard;
- try{guard=await providerCreditState(env);}catch{const error=new Error("额度保护服务暂不可用，已停止第三方请求。");error.status=503;throw error;}
- if(guard.paused){
-  const error=new Error("第三方 API 额度已耗尽，已自动暂停请求以避免继续消耗。额度恢复后可自动重新检测。");
-  error.status=503;error.retryAt=guard.retryAt;throw error;
- }
- let response;
+ if(!env.INSCRAPE_API_KEY){const e=new Error("尚未配置 InScrape 免费 API Key。请在 Cloudflare Worker Secrets 添加 INSCRAPE_API_KEY。");e.status=503;throw e;}
+ if(typeof path!=="string"||!path.startsWith("/v2/instagram/")||path.includes("..")||path.length>1800){const e=new Error("无效的上游请求。");e.status=400;throw e;}
+ const [p,q=""]=path.split("?"),old=new URLSearchParams(q),params=new URLSearchParams();let endpoint="",kind="";
+ const stories=p.match(/^\/v2\/instagram\/profiles\/([^/]+)\/stories$/),highlights=p.match(/^\/v2\/instagram\/profiles\/([^/]+)\/highlights$/),list=p.match(/^\/v2\/instagram\/profiles\/([^/]+)\/media$/),profile=p.match(/^\/v2\/instagram\/profiles\/([^/]+)$/),highlight=p.match(/^\/v2\/instagram\/highlights\/(\d{5,30})$/),tag=p.match(/^\/v2\/instagram\/hashtags\/([^/]+)\/media$/),comments=p.match(/^\/v2\/instagram\/media\/([^/]+)\/comments$/),media=p.match(/^\/v2\/instagram\/media\/([^/]+)$/),search=p==="/v2/instagram/profiles/search",cursor=old.get("cursor");
+ if(stories){endpoint="/v1/instagram/stories";params.set("handle",decodeURIComponent(stories[1]));kind="stories";}
+ else if(highlights){endpoint="/v1/instagram/highlights";params.set("handle",decodeURIComponent(highlights[1]));kind="highlights";}
+ else if(list){kind=old.get("tab")==="reels"?"reels":"posts";endpoint="/v1/instagram/"+kind;params.set("handle",decodeURIComponent(list[1]));if(cursor)params.set("next_cursor",cursor);}
+ else if(profile){endpoint="/v1/instagram/profile";params.set("handle",decodeURIComponent(profile[1]));params.set("include_posts","true");params.set("include_highlights","true");kind="profile";}
+ else if(highlight){endpoint="/v1/instagram/highlight-stories";params.set("highlight_id",highlight[1]);kind="highlight";}
+ else if(tag){endpoint="/v1/instagram/hashtag";params.set("tag",decodeURIComponent(tag[1]));if(cursor)params.set("cursor",cursor);kind="tag";}
+ else if(search){endpoint="/v1/instagram/search-user";if(!old.get("query"))throw badRequest("请输入搜索关键词。");params.set("query",old.get("query"));if(cursor)params.set("cursor",cursor);kind="search";}
+ else if(comments){endpoint="/v1/instagram/comments";params.set("url",decodeURIComponent(comments[1]));if(cursor)params.set("cursor",cursor);kind="comments";}
+ else if(media){endpoint="/v1/instagram/post";params.set("url",decodeURIComponent(media[1]));kind="media";}
+ else if(p==="/v2/instagram/reels/trending")throw unsupportedFreeFeature("当前免费接口没有热门 Reels 榜单，未发送请求。");
+ else if(p==="/v2/instagram/hashtags/search")throw unsupportedFreeFeature("免费接口不提供话题建议搜索。请直接输入准确话题标签浏览帖子。");
+ else if(/\/likers$/.test(p))throw unsupportedFreeFeature("免费接口不提供帖子点赞者名单，未发送请求。");
+ else throw unsupportedFreeFeature("该功能没有已验证的零付费兼容接口，已安全停止请求。");
+ const id=env.RATE_LIMITER.idFromName("inscrape-free-budget-v1"),stub=env.RATE_LIMITER.get(id);
+ const reserve=await stub.fetch("https://rate-limiter.internal/free-budget/reserve",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({cost:2,cap:100})});
+ if(!reserve.ok){const e=new Error("免费额度保护不可用，已停止请求以避免产生费用。");e.status=503;throw e;}
+ const rsv=await reserve.json();if(!rsv.allowed){const e=new Error("100 个免费 credits 安全上限已用完或已预留完毕。不会自动购买积分，也不会调用收费服务。");e.status=402;throw e;}
+ let response,data;
  try{
-  response=await fetch("https://api.socialfetch.dev"+path,{
-   method:"GET",
-   headers:{"x-api-key":env.SOCIALFETCH_API_KEY,"accept":"application/json"},
-   redirect:"error",
-   signal:AbortSignal.timeout(12000)
-  });
+  const u=new URL("https://api.inscrape.dev"+endpoint);u.search=params.toString();
+  response=await fetch(u.toString(),{headers:{"x-api-key":env.INSCRAPE_API_KEY,"accept":"application/json"},redirect:"error",signal:AbortSignal.timeout(15000)});
+  const raw=await response.text();if(raw.length>5_000_000)throw Error("response too large");data=JSON.parse(raw);
  }catch(e){
-  const error=new Error(e?.name==="TimeoutError"||e?.name==="AbortError"?"第三方服务暂时响应超时，请稍后重试。":"第三方服务暂时不可用，请稍后重试。");
-  error.status=504;throw error;
+  await stub.fetch("https://rate-limiter.internal/free-budget/settle",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({reserved:2,charged:2})}).catch(()=>{});
+  const err=new Error("InScrape 连接失败或超时。为保护免费预算，已保留最多 2 credits，不会切换到收费服务。");err.status=504;throw err;
  }
- const length=Number(response.headers.get("content-length")||0);
- if(length>5_000_000){
-  const error=new Error("第三方服务返回的数据过大，已安全终止。");error.status=502;throw error;
+ const n=Number(data?.credits_charged),charged=Number.isFinite(n)&&n>=0?Math.min(2,n):(response.ok?2:0);
+ await stub.fetch("https://rate-limiter.internal/free-budget/settle",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify({reserved:2,charged})}).catch(()=>{});
+ if(!response.ok||data?.success===false){
+  const status=response.status===402?402:response.status===429?429:503;
+  const msg=response.status===401?"InScrape Key 无效，请检查 INSCRAPE_API_KEY。":response.status===402?"InScrape 免费 credits 不足或 Key 限额已到。已停止请求，不会自动购买或调用付费服务。":response.status===429?"InScrape 暂时限制请求，请稍后重试。":"InScrape 服务暂时不可用。";
+  const e=new Error(msg);e.status=status;throw e;
  }
- const body=await response.text();
- if(body.length>5_000_000){
-  const error=new Error("第三方服务返回的数据过大，已安全终止。");error.status=502;throw error;
- }
- let data;
- try{data=JSON.parse(body)}catch{
-  if(response.status===402){
-   try{await providerCreditState(env,"exhausted");}catch{}
-   const error=new Error("第三方 API 额度已耗尽，已自动暂停请求以避免继续消耗。");
-   error.status=503;throw error;
-  }
-  const error=new Error("第三方服务返回了无效数据。");error.status=502;throw error;
- }
- if(!response.ok){
-  const providerError=String(data?.error?.code||data?.error?.type||data?.error||data?.code||"").toLowerCase();
-  const insufficient=providerError.includes("insufficient_credits")||providerError.includes("credit_balance")||providerError.includes("credits_exhausted");
-  if(response.status===402&&insufficient){
-   try{await providerCreditState(env,"exhausted");}catch{}
-   const error=new Error("Social Fetch 账户免费额度或可用额度不足，已暂停请求 24 小时以避免重复消耗。请检查 API 账户额度。");
-   error.status=503;throw error;
-  }
-  if(response.status===402){
-   const error=new Error("Social Fetch 返回 402：API 密钥可能未正确传入，或密钥/账户额度受限。请确认 Cloudflare Secret 名称为 SOCIALFETCH_API_KEY，且密钥以 sfk_ 开头。");
-   error.status=503;throw error;
-  }
-  const status=response.status===429?429:response.status===401?503:response.status===403?503:502;
-  const message=response.status===429?"Social Fetch 请求过于频繁，请稍后重试。":response.status===401?"Social Fetch API 密钥无效、已撤销或过期。请更新 SOCIALFETCH_API_KEY。":response.status===403?"Social Fetch API 密钥有效，但当前账户或权限不允许请求，请检查账户状态。":"Social Fetch 上游请求失败，请稍后重试。";
-  const error=new Error(message);error.status=status;throw error;
- }
- return data;
+ const d=data.data||{};let out={};
+ if(kind==="profile"){const x=d.profile||d;out={profile:{...x,handle:x.handle||x.username,displayName:x.full_name||x.handle,avatarUrl:x.profile_pic_url,avatarUrlHd:x.profile_pic_url_hd||x.profile_pic_url,bio:x.biography,verified:!!x.is_verified,metrics:{posts:x.media_count??null,followers:x.follower_count??null,following:x.following_count??null}},recentMedia:(d.posts||[]).map(inscrapeMedia),about:{bio:x.biography||"",externalUrl:x.external_url||null}};}
+ else if(kind==="stories")out={lookupStatus:"ok",media:(d.stories||[]).map(inscrapeMedia)};
+ else if(kind==="highlights")out={lookupStatus:"ok",highlights:d.highlights||[]};
+ else if(kind==="highlight")out={lookupStatus:"ok",highlight:null,media:(d.stories||d.media||[]).map(inscrapeMedia)};
+ else if(kind==="posts"||kind==="reels")out={lookupStatus:"ok",media:(d[kind]||d.media||[]).map(inscrapeMedia),page:{nextCursor:d.next_cursor||null,hasNextPage:!!d.has_next_page}};
+ else if(kind==="tag")out={media:(d.posts||d.media||[]).map(inscrapeMedia),page:{nextCursor:d.next_cursor||null,hasNextPage:!!d.has_next_page}};
+ else if(kind==="search")out={accounts:(d.users||d.accounts||[]).map(inscrapeAccount),page:{nextCursor:d.next_cursor||null,hasNextPage:!!d.has_next_page}};
+ else if(kind==="comments")out={lookupStatus:"ok",comments:(d.comments||[]).map(x=>({...x,author:x.author||{handle:x.username||x.owner?.username},text:x.text||x.comment||"",likeCount:x.like_count??x.likeCount??0,replyCount:x.reply_count??x.replyCount??0})),page:{nextCursor:d.next_cursor||null,hasNextPage:!!d.has_next_page}};
+ else if(kind==="media"){const x=Array.isArray(d.media)?d.media[0]||null:d.media||null,m=x?.clips_metadata||{},a=m.music_info||m.original_sound_info||null;out={lookupStatus:x?"ok":"not_found",media:x?inscrapeMedia(x):null,audio:a?{id:a.music_canonical_id||a.audio_asset_id||null,title:a.title||a.original_audio_title||"Original audio",artist:a.artist||a.ig_artist?.username||"",isOriginal:!!m.original_sound_info}:null};}
+ return {data:out,meta:{provider:"InScrape",creditsCharged:charged,creditsRemaining:data.credits_remaining??null,stale:false}};
 }
 function normalize(items){
  const typeOf=x=>{const t=String(x?.mediaType||"").toLowerCase();if(t==="video"||x?.videoUrl)return "VIDEO";if(t==="carousel"||Array.isArray(x?.carousel)&&x.carousel.length)return "CAROUSEL";return "IMAGE"};
@@ -179,6 +176,30 @@ export class RateLimiter {
  async fetch(request){
   const url=new URL(request.url);
   if(url.hostname!=="rate-limiter.internal")return new Response("Not found",{status:404,headers:{"cache-control":"no-store"}});
+  if(url.pathname==="/free-budget/state"){
+   if(request.method!=="GET")return new Response("Method not allowed",{status:405});
+   const b=await this.state.storage.get("inscrapeFreeBudget")||{used:0,reserved:0,cap:100};
+   return Response.json({used:b.used,reserved:b.reserved,cap:b.cap,remaining:Math.max(0,b.cap-b.used-b.reserved)},{headers:{"cache-control":"no-store"}});
+  }
+  if(url.pathname==="/free-budget/reserve"){
+   if(request.method!=="POST")return new Response("Method not allowed",{status:405});
+   let input;try{input=await request.json()}catch{return new Response("Bad request",{status:400});}
+   const cost=Math.max(0.1,Math.min(2,Number(input.cost)||2));
+   const result=await this.state.storage.transaction(async tx=>{
+    const b=await tx.get("inscrapeFreeBudget")||{used:0,reserved:0,cap:100};
+    b.cap=Math.min(b.cap||100,100);
+    if(b.used+b.reserved+cost>b.cap)return {allowed:false,used:b.used,reserved:b.reserved,cap:b.cap,remaining:Math.max(0,b.cap-b.used-b.reserved)};
+    b.reserved+=cost;await tx.put("inscrapeFreeBudget",b);return {allowed:true,used:b.used,reserved:b.reserved,cap:b.cap,remaining:Math.max(0,b.cap-b.used-b.reserved)};
+   });
+   return Response.json(result,{headers:{"cache-control":"no-store"}});
+  }
+  if(url.pathname==="/free-budget/settle"){
+   if(request.method!=="POST")return new Response("Method not allowed",{status:405});
+   let input;try{input=await request.json()}catch{return new Response("Bad request",{status:400});}
+   const reserved=Math.max(0,Math.min(2,Number(input.reserved)||0)),charged=Math.max(0,Math.min(2,Number(input.charged)||0));
+   const b=await this.state.storage.transaction(async tx=>{const x=await tx.get("inscrapeFreeBudget")||{used:0,reserved:0,cap:100};x.reserved=Math.max(0,x.reserved-reserved);x.used=Math.min(100,x.used+charged);await tx.put("inscrapeFreeBudget",x);return x;});
+   return Response.json({used:b.used,reserved:b.reserved,cap:b.cap,remaining:Math.max(0,b.cap-b.used-b.reserved)},{headers:{"cache-control":"no-store"}});
+  }
   if(url.pathname==="/credit-state"){
    if(request.method!=="GET")return new Response("Method not allowed",{status:405});
    const state=await this.state.storage.get("creditGuard");
@@ -237,25 +258,11 @@ export default {
     target.search=url.search;
     return withSecurity(Response.redirect(target.toString(),302));
    }
-   if(url.pathname==="/api/health") return json({ok:true,service:"instagram-stories-viewer",provider:"Social Fetch",apiKeyConfigured:!!env.SOCIALFETCH_API_KEY});
+   if(url.pathname==="/api/health") return json({ok:true,service:"instagram-stories-viewer",provider:"InScrape",apiKeyConfigured:!!env.INSCRAPE_API_KEY,paidFallback:false});
    if(url.pathname==="/api/status") {
-    const configured=!!env.SOCIALFETCH_API_KEY;
-    let credits={paused:false,retryAt:null};
-    if(configured){try{credits=await providerCreditState(env);}catch{credits={paused:true,retryAt:null,guardUnavailable:true};}}
-    if(!configured)return json({connected:false,provider:"Social Fetch",apiKeyConfigured:false,connectionState:"missing_key",message:"Cloudflare 未配置 SOCIALFETCH_API_KEY。",requiresMetaLogin:false});
-    if(credits.guardUnavailable)return json({connected:false,provider:"Social Fetch",apiKeyConfigured:true,connectionState:"credit_guard_unavailable",message:"Cloudflare Durable Object 限流/额度保护服务不可用。",requiresMetaLogin:false});
-    if(credits.paused)return json({connected:false,provider:"Social Fetch",apiKeyConfigured:true,connectionState:"credits_exhausted",providerPaused:true,automaticRetryAt:credits.retryAt||null,message:"API 额度保护已暂停请求。",requiresMetaLogin:false});
-    try{
-     const probe=await fetch("https://api.socialfetch.dev/v1/whoami",{method:"GET",headers:{"x-api-key":env.SOCIALFETCH_API_KEY,"accept":"application/json"},redirect:"error",signal:AbortSignal.timeout(7000)});
-     const probeBody=await probe.text();
-     let probeData={};try{probeData=JSON.parse(probeBody)}catch{}
-     if(probe.ok)return json({connected:true,provider:"Social Fetch",apiKeyConfigured:true,connectionState:"connected",message:"Social Fetch API 密钥验证成功。",requiresMetaLogin:false});
-     const code=String(probeData?.error?.code||probeData?.error?.type||probeData?.error||probeData?.code||"").toLowerCase();
-     const auth=probe.status===401||code.includes("unauthorized");
-     return json({connected:false,provider:"Social Fetch",apiKeyConfigured:true,connectionState:auth?"invalid_key":probe.status===402?"credits_or_key_issue":probe.status===429?"rate_limited":"provider_error",providerHttpStatus:probe.status,message:auth?"API 密钥无效、已撤销或过期，请检查 SOCIALFETCH_API_KEY。":probe.status===402?"Social Fetch 返回 402，请检查密钥是否正确传入及账户额度。":probe.status===429?"Social Fetch 请求频率受限，请稍后再试。":"Social Fetch 暂时无法验证密钥，请稍后重试。",requiresMetaLogin:false});
-    }catch{
-     return json({connected:false,provider:"Social Fetch",apiKeyConfigured:true,connectionState:"provider_unreachable",message:"无法连接 Social Fetch 验证接口，请稍后重试。",requiresMetaLogin:false});
-    }
+    const configured=!!env.INSCRAPE_API_KEY;let freeBudget={used:0,reserved:0,cap:100,remaining:100};
+    try{const id=env.RATE_LIMITER.idFromName("inscrape-free-budget-v1"),stub=env.RATE_LIMITER.get(id),r=await stub.fetch("https://rate-limiter.internal/free-budget/state");if(r.ok)freeBudget=await r.json();}catch{}
+    return json({connected:false,provider:"InScrape",apiKeyConfigured:configured,connectionState:configured?"configured_unverified":"missing_key",freeBudget,paidFallback:false,automaticPurchases:false,message:configured?"InScrape Key 已配置；状态检查不消耗 credits，首次真实查询成功后确认连接。":"请在 Cloudflare Worker Secrets 添加 INSCRAPE_API_KEY（sk_ 开头）。"});
    }
    if(url.pathname==="/api/profile"){
     const profile=cleanProfile(url.searchParams.get("username"));
