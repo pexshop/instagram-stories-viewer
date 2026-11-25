@@ -218,17 +218,16 @@ input:not([type=checkbox]),select,.embed-form input{
 <canvas id="textParticles" aria-hidden="true"></canvas>
 <header><div class="logo">Instagram <span>浏览器</span></div><div class="status" id="status">正在检查连接…</div></header>
 <nav class="tool-top-nav" id="toolTopNav" aria-label="网站工具导航">
- <a href="#homeSection">首页</a><a href="#followerFeedSection">关注者动态</a><a href="#profileSection">主页</a><a href="#manualFollowersBox">关注者</a>
+ <a href="#homeSection">首页</a><a href="#historySection">观看记录</a><a href="#profileSection">主页</a>
  <a href="#loadStories">快拍</a><a href="#loadHighlights">精选</a><a href="#loadPosts">帖子</a><a href="#loadReels">Reels</a>
  <a href="#playHighlight">播放精选</a><a href="#searchProfiles">搜索账号</a><a href="#loadTrendingReels">热门 Reels</a>
  <a href="#searchHashtags">话题搜索</a><a href="#loadComments">评论</a><a href="#loadLikers">点赞者</a><a href="#settingsTop">播放设置</a>
 </nav>
 <main><section class="hero" id="homeSection"><h1>浏览公开 Instagram 内容</h1><div class="sub">输入用户名，查看快拍、帖子、Reels 和主页资料。</div></section>
-<section class="profile-view follower-feed" id="followerFeedSection">
- <div class="feed-heading"><div><h2>关注者动态</h2><p class="profile-note">汇总关注者名单中账号的最新公开帖子。每批读取 20 个账号，避免一次请求过多。</p></div><span class="followers-count" id="feedProgress">0 / 0</span></div>
- <div class="feed-actions"><button class="primary" id="loadFollowerFeed" type="button">加载关注者帖子</button><button class="secondary" id="resetFollowerFeed" type="button">重新加载</button></div>
- <p class="profile-note" id="feedStatus">先在「我的关注者名单」添加账号，再加载动态。每个账号会请求一次第三方 API，可能消耗额度。</p>
- <div id="followerFeedList" class="feed-list"></div>
+<section class="profile-view" id="historySection">
+ <div class="feed-heading"><div><h2>观看记录</h2><p class="profile-note">在本站查看过的 Instagram 账号会自动显示在这里，最新查看的排在最前面。记录保存在当前浏览器。</p></div><span class="followers-count" id="historyCount">0 个账号</span></div>
+ <div class="feed-actions"><button class="secondary" id="clearProfileHistory" type="button">清空观看记录</button></div>
+ <div id="profileHistory" class="feed-list"><p class="profile-note">暂无观看记录。输入账号并查看内容后，会自动显示在这里。</p></div>
 </section>
 <div class="notice">数据来自第三方公开数据服务。无需 Instagram 登录；仅支持可公开访问的内容。API 密钥保存在服务器端，服务可能有使用额度或费用。</div>
 <div class="layout"><section class="viewer"><div class="empty" id="empty"><div class="symbol">◉</div><b>准备浏览快拍</b><div>输入公开 Instagram 用户名即可浏览可访问的快拍、精选、帖子和 Reels</div></div>
@@ -275,7 +274,7 @@ function msg(t){$("message").textContent=t||""}
 function profileValue(){return $("profile").value.trim().replace(/^@/,"")}
 const PROFILE_HISTORY_KEY="ig_profile_history_v1";
 function readProfileHistory(){try{const v=JSON.parse(localStorage.getItem(PROFILE_HISTORY_KEY)||"[]");return Array.isArray(v)?v.filter(x=>typeof x==="string"&&/^[A-Za-z0-9._]{1,30}$/.test(x)):[]}catch{return[]}}
-function renderProfileHistory(){const box=$("profileHistory");if(!box)return;const items=readProfileHistory();box.replaceChildren();if(!items.length){box.textContent="暂无记录";return}items.forEach(p=>{const row=document.createElement("div");row.style.cssText="display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border:1px solid #ffffff20;border-radius:10px";const link=document.createElement("a");link.href="https://www.instagram.com/"+encodeURIComponent(p)+"/";link.target="_blank";link.rel="noopener noreferrer";link.textContent="@"+p;link.style.cssText="color:#c6a5ff;overflow-wrap:anywhere";link.addEventListener("click",()=>rememberProfile(p));const view=document.createElement("button");view.type="button";view.className="secondary";view.textContent="再次浏览";view.addEventListener("click",()=>{ $("profile").value=p;syncProfileUrl();loadStories();});row.append(link,view);box.append(row)})}
+function renderProfileHistory(){const box=$("profileHistory"),count=$("historyCount");if(!box)return;const items=readProfileHistory();if(count)count.textContent=items.length+" 个账号";box.replaceChildren();if(!items.length){const empty=document.createElement("p");empty.className="profile-note";empty.textContent="暂无观看记录。输入账号并查看内容后，会自动显示在这里。";box.append(empty);return}items.forEach(p=>{const row=document.createElement("article");row.className="feed-account";row.style.cssText="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap";const name=document.createElement("strong");name.textContent="@"+p;name.style.cssText="color:#e8ddff;flex:1";const view=document.createElement("button");view.type="button";view.className="secondary";view.textContent="再次查看";view.addEventListener("click",()=>{$("profile").value=p;syncProfileUrl();loadStories();$("profileSection").scrollIntoView({behavior:"smooth",block:"start"})});const open=document.createElement("a");open.href="https://www.instagram.com/"+encodeURIComponent(p)+"/";open.target="_blank";open.rel="noopener noreferrer";open.className="secondary";open.textContent="Instagram 主页";open.style.cssText="text-decoration:none";row.append(name,view,open);box.append(row)})}
 function rememberProfile(value=profileValue()){const p=value.trim().replace(/^@/,"");if(!/^[A-Za-z0-9._]{1,30}$/.test(p))return;try{const items=[p,...readProfileHistory().filter(x=>x.toLowerCase()!==p.toLowerCase())].slice(0,20);localStorage.setItem(PROFILE_HISTORY_KEY,JSON.stringify(items));renderProfileHistory()}catch{const box=$("profileHistory");if(box)box.textContent="浏览器存储不可用，无法保存记录"}}
 function syncProfileUrl(){const p=profileValue(),a=$("profileUrl");if(/^[A-Za-z0-9._]{1,30}$/.test(p)){a.href="https://www.instagram.com/"+encodeURIComponent(p)+"/";a.textContent="打开 Instagram 主页 · @"+p;a.style.display="block"}else{a.removeAttribute("href");a.style.display="none"}}
 const MANUAL_FOLLOWERS_KEY="ig_manual_followers_v1";
