@@ -8,6 +8,29 @@ This project uses Meta's official Facebook Login + Instagram Graph API. The Stor
 
 Official reference: https://developers.facebook.com/docs/graph-api/reference/ig-user/stories/
 
+
+
+## Deploy on the existing Cloudflare Pages site
+
+This repository also supports **Cloudflare Pages Functions**, so the frontend and OAuth/API routes can run on the same Pages hostname (for example, `https://instagram-stories-viewer.pages.dev`). The adapter is `functions/[[path]].js`, which forwards API and OAuth requests to the existing `worker.js` implementation and serves static files for all other routes.
+
+1. In Cloudflare Dashboard, open **Workers & Pages → instagram-stories-viewer → Settings → Functions → KV namespace bindings**.
+2. Add a KV binding with variable name `SESSION_KV`, selecting your existing KV namespace (or create one first).
+3. Under **Settings → Variables and Secrets**, add these as encrypted secrets:
+   - `META_APP_ID`
+   - `META_APP_SECRET`
+4. In Meta for Developers, configure Facebook Login and add this exact Valid OAuth Redirect URI:
+   `https://instagram-stories-viewer.pages.dev/auth/callback`
+5. Save settings and trigger a new Pages deployment from the latest GitHub commit.
+6. Verify:
+   - `https://instagram-stories-viewer.pages.dev/api/health` should return `ok:true` and `kvConfigured:true`.
+   - `https://instagram-stories-viewer.pages.dev/api/status` should return JSON (before login, `connected:false` is expected).
+7. Open the site and tap **使用 Facebook / Meta 登录**.
+
+For Pages deployment, configure the Pages project build output directory as `public` (or keep the existing successful Pages build settings). Keep the `functions` directory at the repository root so Cloudflare detects and deploys the Functions. The Pages Functions environment must contain the KV binding and secrets above.
+
+The existing standalone Worker deployment instructions below remain available if you prefer a separate `workers.dev` backend. When using the Pages Functions setup above, do not use the `YOUR-WORKER.workers.dev` placeholder values; the OAuth callback is on the Pages hostname.
+
 ## Deploy to Cloudflare Workers
 
 **Use Workers, not Cloudflare Pages.** This repository contains a Worker backend and static assets. Cloudflare Pages static hosting alone will not run `worker.js`.
