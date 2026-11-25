@@ -1,7 +1,14 @@
 const json=(data,status=200)=>new Response(JSON.stringify(data),{status,headers:{"content-type":"application/json; charset=utf-8","cache-control":"no-store"}});
 function cleanProfile(value){
- const raw=String(value||"").trim().replace(/^@/,"");
- if(!raw||raw.length>100||/[\s/?#]/.test(raw)) throw new Error("请输入有效的 Instagram 用户名，不要包含 @ 以外的特殊字符。");
+ let raw=String(value||"").trim();
+ if(/^https?:\\/\\//i.test(raw)){
+  let parsed;try{parsed=new URL(raw)}catch{throw new Error("Instagram 主页链接无效。")}
+  if(!/(^|\\.)instagram\\.com$/i.test(parsed.hostname))throw new Error("只支持 instagram.com 主页链接。");
+  const parts=parsed.pathname.split("/").filter(Boolean);
+  raw=parts[0]==="stories"?parts[1]||"":parts[0]||"";
+ }
+ raw=raw.replace(/^@/,"");
+ if(!/^[A-Za-z0-9._]{1,30}$/.test(raw))throw new Error("请输入有效的 Instagram 用户名，或 instagram.com 用户主页链接。");
  return raw;
 }
 async function social(path,env){
