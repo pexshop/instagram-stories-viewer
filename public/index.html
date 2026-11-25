@@ -213,11 +213,39 @@ input:not([type=checkbox]),select,.embed-form input{
 .embed-item{background:rgba(255,255,255,.92)!important}
 .media-modal{background:rgba(0,0,0,.34)!important;backdrop-filter:none!important}
 .media-modal-card{background:rgba(4,7,16,.52)!important;backdrop-filter:none!important}
-#nebulaMotion{animation:none!important;filter:none!important;opacity:.12!important;transform:none!important}
-#galaxyPhoto{opacity:.10!important;filter:none!important}
-#spacePhoto{filter:none!important}
-#textParticles{display:none!important}
+/* Slow, continuous background movement: gentle parallax instead of a static wallpaper. */
+#spacePhoto{
+ filter:none!important;
+ transform-origin:50% 50%;
+ animation:cosmicPhotoDrift 150s ease-in-out infinite alternate!important;
+ will-change:transform;
+}
+#galaxyPhoto{
+ opacity:.13!important;
+ filter:none!important;
+ transform-origin:50% 50%;
+ animation:galaxyPhotoDrift 118s ease-in-out infinite alternate!important;
+ will-change:transform,opacity;
+}
+#nebulaMotion{
+ animation:nebulaFlow 78s ease-in-out infinite alternate!important;
+ filter:blur(34px)!important;
+ opacity:.20!important;
+ transform:translateZ(0);
+ will-change:transform;
+}
+#textParticles{display:block!important;opacity:.24!important}
 #starfield{opacity:.55!important}
+@keyframes cosmicPhotoDrift{
+ 0%{transform:scale(1.015) translate3d(-.35%,.2%,0)}
+ 50%{transform:scale(1.065) translate3d(.25%,-.25%,0)}
+ 100%{transform:scale(1.09) translate3d(.4%,.3%,0)}
+}
+@keyframes galaxyPhotoDrift{
+ 0%{transform:scale(1.02) translate3d(.3%,-.2%,0);opacity:.09}
+ 50%{transform:scale(1.055) translate3d(-.25%,.2%,0);opacity:.15}
+ 100%{transform:scale(1.08) translate3d(-.4%,-.25%,0);opacity:.12}
+}
 .site-motion-text{animation:siteTextLowCost 14s ease-in-out infinite!important;will-change:auto!important;text-shadow:0 1px 5px #000!important}
 @media(max-width:760px){
  #spacePhoto{background-position:52% center}
