@@ -252,7 +252,8 @@ input:not([type=checkbox]),select,.embed-form input{
  <p class="profile-note" id="historyRefreshStatus">自动刷新默认关闭；开启后会定期读取观看记录账号的最新公开帖子。每个账号会产生一次第三方 API 请求。</p>
  <div id="profileHistory" class="feed-list"><p class="profile-note">暂无观看记录。输入账号并查看内容后，会自动显示在这里。</p></div>
  <div id="historyPostsFeed" class="media-gallery" aria-live="polite"><p class="media-gallery-empty">刷新后在这里显示观看记录账号的最新帖子。</p></div>
-</section><div class="notice">数据来自第三方公开数据服务。无需 Instagram 登录；仅支持可公开访问的内容。API 密钥保存在服务器端，服务可能有使用额度或费用。</div><section class="profile-view media-results-section" id="postsSection"><div class="feed-heading"><div><h2>帖子与 Reels</h2><p class="profile-note">点击上方「帖子」或「Reels」后，结果会显示在这里；点击缩略图可查看媒体。</p></div><span class="item-count" id="mediaResultCount"></span></div><div id="mediaGallery" class="media-gallery" aria-live="polite"><p class="media-gallery-empty">输入公开账号，然后点击「帖子」。</p></div></section><section class="profile-view" id="profileSection"><h2 style="margin:0 0 8px;font-size:18px">2. 主页资料</h2><p style="color:#707580;font-size:13px;line-height:1.6">查看账号简介、粉丝数据和最近发布的内容。</p><button class="primary" id="loadProfile" type="button">查看主页</button><div id="profileResult"></div><div class="profile-note">仅显示第三方 API 能获取的公开资料。私密内容不可查看；图片和视频地址可能过期。帖子和 Reels 会以网格展示，点击卡片可预览。</div></section><details class="profile-view simple-more"><summary>更多工具</summary><p class="more-intro">不常用的功能放在这里，需要时再展开。</p><div class="more-inner">
+</section><div class="notice">数据来自第三方公开数据服务。无需 Instagram 登录；仅支持可公开访问的内容。API 密钥保存在服务器端，服务可能有使用额度或费用。</div><section class="profile-view media-results-section" id="postsSection"><div class="feed-heading"><div><h2>帖子与 Reels</h2><p class="profile-note">点击上方「帖子」或「Reels」后，结果会显示在这里；点击缩略图可查看媒体。</p></div><span class="item-count" id="mediaResultCount"></span></div><div id="mediaGallery" class="media-gallery" aria-live="polite"><p class="media-gallery-empty">输入公开账号，然后点击「帖子」。</p></div></section><section class="profile-view" id="musicDetectSection"><h2 style="margin:0 0 8px;font-size:18px">Instagram 帖子音乐检测</h2><p style="color:#707580;font-size:13px;line-height:1.6">粘贴公开 Instagram 帖子或 Reels 链接，读取 Instagram 提供的音乐或原创音频名称、作者和音频类型。</p><div class="embed-form"><input id="musicDetectUrl" inputmode="url" autocomplete="url" placeholder="https://www.instagram.com/reel/…"><button class="primary" id="detectPostMusic" type="button" style="width:auto;min-width:120px">检测音乐</button></div><div id="musicDetectResults" aria-live="polite" style="margin-top:14px"></div><p class="profile-note">每次检测调用一次第三方接口，通常消耗 1 credit。私密、已删除或不可访问的帖子无法检测；部分帖子没有音乐元数据。</p></section>
+<section class="profile-view" id="profileSection"><h2 style="margin:0 0 8px;font-size:18px">2. 主页资料</h2><p style="color:#707580;font-size:13px;line-height:1.6">查看账号简介、粉丝数据和最近发布的内容。</p><button class="primary" id="loadProfile" type="button">查看主页</button><div id="profileResult"></div><div class="profile-note">仅显示第三方 API 能获取的公开资料。私密内容不可查看；图片和视频地址可能过期。帖子和 Reels 会以网格展示，点击卡片可预览。</div></section><details class="profile-view simple-more"><summary>更多工具</summary><p class="more-intro">不常用的功能放在这里，需要时再展开。</p><div class="more-inner">
 <h2 style="margin:0 0 8px;font-size:18px">搜索公开账号</h2>
 <p style="color:#aaa;font-size:13px;line-height:1.6">输入名称或关键词，查找公开账号。</p>
 <div class="embed-form"><input id="profileSearchQuery" placeholder="搜索账号或关键词，例如 travel"><button class="primary" id="searchProfiles" type="button" style="width:auto;min-width:110px">搜索账号</button></div>
@@ -436,6 +437,33 @@ async function searchHashtags(){
    info.append(name,count,open);row.append(info);box.append(row)
   });msg("找到 "+d.hashtags.length+" 个话题 · "+(d.creditsCharged??"?")+" credits");
  }catch(e){box.textContent=e.message}
+}
+async function detectPostMusic(){
+ const input=$("musicDetectUrl"),box=$("musicDetectResults"),media=input.value.trim();
+ if(!media){msg("请先粘贴 Instagram 帖子或 Reels 链接。");return}
+ box.textContent="正在检测帖子音乐…";
+ try{
+  const d=await api("/api/media/music?media="+encodeURIComponent(media));
+  box.replaceChildren();
+  if(d.lookupStatus!=="found"||!d.post){box.textContent="没有找到公开帖子。请检查链接，或确认帖子没有删除且账号公开。";return}
+  const audio=d.audio;
+  const card=document.createElement("div");card.className="result-card";card.style.alignItems="flex-start";
+  const info=document.createElement("div");info.style.minWidth="0";info.style.width="100%";
+  const title=document.createElement("div");title.className="result-name";title.textContent=audio?.title||"未检测到音乐信息";
+  const artist=document.createElement("div");artist.className="result-meta";artist.textContent=audio?.artist||(audio?.artistHandle?"@"+audio.artistHandle:"");
+  const type=document.createElement("div");type.className="result-meta";type.style.marginTop="7px";
+  type.textContent=audio?(audio.isOriginal?"原创音频":"Instagram 音乐"):"Instagram 未提供该帖子的音频元数据";
+  info.append(title,artist,type);
+  if(audio?.id){
+   const audioLink=document.createElement("a");audioLink.href="https://www.instagram.com/reels/audio/"+encodeURIComponent(audio.id)+"/";audioLink.target="_blank";audioLink.rel="noopener noreferrer";audioLink.className="secondary";audioLink.style.display="inline-block";audioLink.style.textDecoration="none";audioLink.textContent="打开 Instagram 音频页面";info.append(audioLink);
+  }
+  if(audio?.title&&audio?.title!=="Original audio"){
+   const spotify=document.createElement("a");spotify.href="https://open.spotify.com/search/"+encodeURIComponent([audio.title,audio.artist].filter(Boolean).join(" "));spotify.target="_blank";spotify.rel="noopener noreferrer";spotify.className="secondary";spotify.style.display="inline-block";spotify.style.textDecoration="none";spotify.style.marginLeft="7px";spotify.textContent="在 Spotify 搜索";info.append(spotify);
+  }
+  card.append(info);box.append(card);
+  const post=document.createElement("p");post.className="profile-note";post.textContent=(d.post.owner?.handle?"帖子账号：@"+d.post.owner.handle+" · ":"")+"检测完成 · "+(d.creditsCharged??"?")+" credit"+(d.stale?" · 使用缓存结果":"");box.append(post);
+  if(!audio)msg("帖子已找到，但 Instagram 没有提供可识别的音乐信息。");else msg("音乐检测完成。");
+ }catch(e){box.textContent=e.message;msg(e.message)}
 }
 async function lookupMediaList(kind){
  const media=$("mediaLookupUrl").value.trim();if(!media){msg("请粘贴公开帖子或 Reels 链接。");return}
