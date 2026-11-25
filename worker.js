@@ -46,6 +46,28 @@ export default {
     const d=result.data||{};
     return json({username:profile,lookupStatus:d.lookupStatus||"unknown",profile:d.profile||null,recentMedia:normalize(d.recentMedia),about:d.about||null,creditsCharged:result.meta?.creditsCharged??null,stale:!!result.meta?.stale});
    }
+   if(url.pathname==="/api/trending/reels"){
+    const result=await social("/v2/instagram/reels/trending",env);
+    const d=result.data||{};
+    return json({media:normalize(d.media),items:d.media||[],creditsCharged:result.meta?.creditsCharged??null});
+   }
+   if(url.pathname==="/api/hashtags/search"){
+    const query=String(url.searchParams.get("query")||"").trim();
+    if(!query||query.length>100) throw new Error("请输入话题关键词。");
+    const result=await social("/v2/instagram/hashtags/search?query="+encodeURIComponent(query),env);
+    const d=result.data||{};
+    return json({hashtags:d.hashtags||[],creditsCharged:result.meta?.creditsCharged??null});
+   }
+   if(url.pathname==="/api/hashtags/media"){
+    const hashtag=String(url.searchParams.get("hashtag")||"").trim().replace(/^#/,"");
+    if(!/^[\\p{L}\\p{N}_.]+$/u.test(hashtag)||hashtag.length>100) throw new Error("话题标签格式无效。");
+    const tab=["top","recent","reels"].includes(url.searchParams.get("tab"))?url.searchParams.get("tab"):"top";
+    const cursor=url.searchParams.get("cursor");
+    const qs=new URLSearchParams({tab});if(cursor)qs.set("cursor",cursor);
+    const result=await social("/v2/instagram/hashtags/"+encodeURIComponent(hashtag)+"/media?"+qs.toString(),env);
+    const d=result.data||{};
+    return json({media:normalize(d.media),page:d.page||null,creditsCharged:result.meta?.creditsCharged??null});
+   }
    if(url.pathname==="/api/search/profiles"){
     const query=String(url.searchParams.get("query")||"").trim();
     if(!query||query.length>100) throw new Error("请输入要搜索的账号关键词（最多 100 个字符）。");
