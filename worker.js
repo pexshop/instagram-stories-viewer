@@ -31,7 +31,7 @@ export default {
   const url=new URL(request.url);
   try{
    if(url.pathname==="/api/health") return json({ok:true,service:"instagram-stories-viewer",provider:"Social Fetch",apiKeyConfigured:!!env.SOCIALFETCH_API_KEY});
-   if(url.pathname==="/api/status") return json({connected:false,provider:"Social Fetch",apiKeyConfigured:!!env.SOCIALFETCH_API_KEY,requiresMetaLogin:false});
+   if(url.pathname==="/api/status") { const configured=!!env.SOCIALFETCH_API_KEY; return json({connected:configured,provider:"Social Fetch",apiKeyConfigured:configured,connectionState:configured?"configured":"missing_key",requiresMetaLogin:false}); }
    if(url.pathname==="/api/followers"){
     const profile=cleanProfile(url.searchParams.get("username"));
     const cursor=url.searchParams.get("cursor");
