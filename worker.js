@@ -60,7 +60,7 @@ export default {
    }
    if(url.pathname==="/api/hashtags/media"){
     const hashtag=String(url.searchParams.get("hashtag")||"").trim().replace(/^#/,"");
-    if(!/^[\\p{L}\\p{N}_.]+$/u.test(hashtag)||hashtag.length>100) throw new Error("话题标签格式无效。");
+    if(!/^[\p{L}\p{N}_.]+$/u.test(hashtag)||hashtag.length>100) throw new Error("话题标签格式无效。");
     const tab=["top","recent","reels"].includes(url.searchParams.get("tab"))?url.searchParams.get("tab"):"top";
     const cursor=url.searchParams.get("cursor");
     const qs=new URLSearchParams({tab});if(cursor)qs.set("cursor",cursor);
